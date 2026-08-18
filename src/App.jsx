@@ -16,7 +16,6 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sentenceCards, setSentenceCards] = useState({});
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({});
-  const [focusedSentence, setFocusedSentence] = useState(null);
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
   const [hasSeedSentence, setHasSeedSentence] = useState(false);
@@ -61,7 +60,7 @@ export default function App() {
     const existingParts = cardParts((sentenceCards[currentPage] ?? [])[index] ?? {});
     const parts = Array.from(element.childNodes).flatMap((node) => {
       if (node.nodeType === Node.TEXT_NODE) return node.textContent ? [textPart(node.textContent)] : [];
-      if (!(node instanceof HTMLElement) || node.classList.contains("text-cursor")) return [];
+      if (!(node instanceof HTMLElement)) return [];
       if (node.classList.contains("blank-word-card")) {
         const id = Number(node.dataset.blankId);
         return existingParts.find((part) => part.type === "blank" && part.id === id) ?? [];
@@ -322,17 +321,12 @@ export default function App() {
                 aria-label={`编辑第 ${index + 1} 个句子`}
                 onFocus={() => {
                   setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
-                  setFocusedSentence({ page: currentPage, index });
                 }}
-                onBlur={() => setFocusedSentence(null)}
                 onInput={(event) => updateSentenceFromElement(index, event.currentTarget)}
                 onMouseUp={(event) => selectWord(index, event.currentTarget)}
                 onKeyUp={(event) => selectWord(index, event.currentTarget)}
               >
                 {renderSentence(card, index)}
-                {focusedSentence?.page === currentPage && focusedSentence.index === index && (
-                  <img className="text-cursor" src={icon("text-cursor.svg")} alt="" contentEditable={false} />
-                )}
               </div>
             </div>
           ))}

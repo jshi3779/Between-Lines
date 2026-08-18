@@ -253,24 +253,6 @@ html, body, #root {
   outline: none;
 }
 
-.sentence-text:focus {
-  caret-color: transparent;
-}
-
-.text-cursor {
-  display: inline-block;
-  width: 11px;
-  height: 25px;
-  margin-left: 2px;
-  vertical-align: -6px;
-  user-select: none;
-  animation: cursor-blink 1s steps(1, end) infinite;
-}
-
-@keyframes cursor-blink {
-  50% { opacity: 0; }
-}
-
 .selected-word {
   position: relative;
   color: #3465d6;
