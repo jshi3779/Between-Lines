@@ -1,0 +1,394 @@
+:root {
+  background: #d8d8d6;
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+.prototype-stage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.app-screen {
+  width: 375px;
+  height: 812px;
+  flex: none;
+  position: relative;
+  overflow: hidden;
+  background: #ececea;
+  color: #242222;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 12%);
+}
+
+.top-navigation {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  color: #242222;
+}
+
+.nav-button {
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #242222;
+  cursor: pointer;
+}
+
+.nav-button img {
+  display: block;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.nav-back {
+  position: absolute;
+  left: 20px;
+  top: 0;
+}
+
+.editable-title {
+  position: absolute;
+  top: 50%;
+  left: 60px;
+  right: 110px;
+  margin: 0;
+  overflow: hidden;
+  color: #242222;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 30px;
+  white-space: nowrap;
+  text-align: center;
+  text-overflow: ellipsis;
+  transform: translateY(-50%);
+  outline: none;
+}
+
+.editable-title:focus {
+  text-overflow: clip;
+}
+
+.nav-actions {
+  position: absolute;
+  top: 0;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.notebook-page {
+  position: absolute;
+  top: 115px;
+  left: 0;
+  width: 375px;
+  margin: 0;
+}
+
+.notebook-page-left {
+  left: 0;
+}
+
+.notebook-page-right {
+  left: auto;
+  right: 0;
+}
+
+.notebook-page img {
+  display: block;
+  width: 375px;
+  height: auto;
+}
+
+.page-navigation {
+  position: absolute;
+  top: 140px;
+  right: 20px;
+  z-index: 2;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #79746d;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.page-navigation span {
+  min-width: 38px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.page-arrow {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: #79746d;
+  -webkit-mask: url("/icons/back.svg") center / contain no-repeat;
+  mask: url("/icons/back.svg") center / contain no-repeat;
+  cursor: pointer;
+}
+
+.page-arrow-next {
+  transform: rotate(180deg);
+}
+
+.page-arrow:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.sentence-area {
+  position: absolute;
+  top: 190px;
+  left: 50%;
+  z-index: 1;
+  width: 369px;
+  transform: translateX(-50%);
+}
+
+.add-sentence-button {
+  display: block;
+  width: 330px;
+  height: 60px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.add-sentence-button img {
+  display: block;
+  width: 330px;
+  height: 60px;
+}
+
+.edit-sentence-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 20px;
+  position: relative;
+  box-sizing: border-box;
+  width: 369px;
+  min-width: 369px;
+  max-width: 369px;
+  min-height: 100px;
+  height: auto;
+  margin: 0 0 10px;
+  padding: 16px;
+  overflow: visible;
+  border-radius: 24px;
+  background: transparent;
+  box-shadow: none;
+  cursor: text;
+}
+
+.edit-sentence-card.is-active {
+  background: #fff;
+  box-shadow: 0 8px 18px rgb(57 52 47 / 18%);
+}
+
+.edit-sentence-background {
+  display: none;
+}
+
+.edit-sentence-card .sentence-avatar {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: 1;
+  display: block;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.sentence-text {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: #242222;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 22px;
+  text-align: left;
+  outline: none;
+}
+
+.sentence-text:focus {
+  caret-color: transparent;
+}
+
+.text-cursor {
+  display: inline-block;
+  width: 11px;
+  height: 25px;
+  margin-left: 2px;
+  vertical-align: -6px;
+  user-select: none;
+  animation: cursor-blink 1s steps(1, end) infinite;
+}
+
+@keyframes cursor-blink {
+  50% { opacity: 0; }
+}
+
+.selected-word {
+  position: relative;
+  color: #3465d6;
+  text-decoration: underline;
+  text-decoration-color: #3465d6;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.delete-word-button {
+  position: absolute;
+  top: -34px;
+  left: calc(100% + 4px);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.delete-word-button img {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.blank-word-card {
+  position: relative;
+  display: inline-block;
+  width: var(--blank-card-width, 88px);
+  min-width: 88px;
+  max-width: 100%;
+  height: 31px;
+  margin: 0 2px;
+  vertical-align: middle;
+  background: url("/icons/blank-word-card.svg") center / 100% 31px no-repeat;
+}
+
+.blank-word-card input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 3px 10px;
+  border: 0;
+  background: transparent;
+  color: #242222;
+  font: inherit;
+  line-height: 25px;
+  outline: none;
+  z-index: 1;
+}
+
+.sentence-empty-state {
+  margin-top: 15px;
+  color: #79746d;
+  text-align: center;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+}
+
+.sentence-empty-state p {
+  margin: 0;
+}
+
+.sentence-empty-state p:first-child {
+  font-size: 15px;
+  line-height: 18px;
+}
+
+.sentence-empty-state p + p {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+
+.add-page-button {
+  position: absolute;
+  right: 10px;
+  bottom: 30px;
+  z-index: 2;
+  width: 70px;
+  height: 70px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.add-page-button img {
+  display: block;
+  width: 70px;
+  height: 70px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 423px), (max-height: 860px) {
+  .prototype-stage {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .app-screen {
+    transform: scale(min(calc(100vw / 375), calc(100vh / 812)));
+  }
+}

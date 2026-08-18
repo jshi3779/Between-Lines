@@ -1,0 +1,352 @@
+import { useEffect, useRef, useState } from "react";
+
+const MAX_SENTENCE_CARDS = 5;
+const STARTER_SENTENCES = [
+  "The last train to Glasgow leaves without me tonight.",
+  "Your handwriting still looks like rain.",
+  "The light falls differently in October now.",
+];
+const textPart = (value) => ({ type: "text", value });
+const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
+const blankCardWidth = (value) => Math.min(250, Math.max(88, 24 + value.length * 12));
+
+export default function App() {
+  const [pageCount, setPageCount] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sentenceCards, setSentenceCards] = useState({});
+  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({});
+  const [focusedSentence, setFocusedSentence] = useState(null);
+  const [selectedWord, setSelectedWord] = useState(null);
+  const [focusedBlankId, setFocusedBlankId] = useState(null);
+  const [hasSeedSentence, setHasSeedSentence] = useState(false);
+  const [isAddPressed, setIsAddPressed] = useState(false);
+  const releaseTimer = useRef(null);
+  const blankId = useRef(0);
+  const blankInputs = useRef({});
+  const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
+
+  useEffect(() => () => clearTimeout(releaseTimer.current), []);
+
+  useEffect(() => {
+    if (focusedBlankId === null) return;
+    blankInputs.current[focusedBlankId]?.focus();
+    setFocusedBlankId(null);
+  }, [focusedBlankId, sentenceCards]);
+
+  const addPage = () => {
+    setIsAddPressed(true);
+    setPageCount((count) => {
+      const nextPage = count + 1;
+      setCurrentPage(nextPage);
+      return nextPage;
+    });
+    clearTimeout(releaseTimer.current);
+    releaseTimer.current = setTimeout(() => setIsAddPressed(false), 180);
+  };
+
+  const addSentence = () => {
+    if (currentSentenceCards.length >= MAX_SENTENCE_CARDS) return;
+
+    const avatar = Math.floor(Math.random() * 4) + 1;
+    const nextIndex = currentSentenceCards.length;
+    const text = hasSeedSentence
+      ? ""
+      : STARTER_SENTENCES[Math.floor(Math.random() * STARTER_SENTENCES.length)];
+    setSentenceCards((cards) => ({
+      ...cards,
+      [currentPage]: [
+        ...(cards[currentPage] ?? []),
+        { avatar, parts: [textPart(text)] },
+      ],
+    }));
+    setHasSeedSentence(true);
+    setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: nextIndex }));
+  };
+
+  const updateSentence = (index, text) => {
+    setSentenceCards((cards) => ({
+      ...cards,
+      [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
+        cardIndex === index ? { ...card, parts: [textPart(text)] } : card,
+      ),
+    }));
+    setSelectedWord(null);
+  };
+
+  const textOffset = (root, targetNode, targetOffset) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let offset = 0;
+    let node = walker.nextNode();
+    while (node) {
+      if (node === targetNode) return offset + targetOffset;
+      offset += node.textContent.length;
+      node = walker.nextNode();
+    }
+    return null;
+  };
+
+  const selectWord = (index, element) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      setSelectedWord(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!element.contains(range.startContainer) || !element.contains(range.endContainer)) return;
+
+    const rawWord = selection.toString();
+    const word = rawWord.trim();
+    if (!word || /\s/.test(word)) return;
+
+    const start = textOffset(element, range.startContainer, range.startOffset);
+    if (start === null) return;
+    const wordStart = start + rawWord.indexOf(word);
+    setSelectedWord({ page: currentPage, index, start: wordStart, end: wordStart + word.length });
+  };
+
+  const deleteSelectedWord = () => {
+    if (!selectedWord) return;
+    const { page, index, start, end } = selectedWord;
+    const nextBlankId = blankId.current + 1;
+    blankId.current = nextBlankId;
+    setSentenceCards((cards) => ({
+      ...cards,
+      [page]: (cards[page] ?? []).map((card, cardIndex) => {
+        if (cardIndex !== index) return card;
+
+        let offset = 0;
+        let insertedBlank = false;
+        const parts = cardParts(card).flatMap((part) => {
+          if (part.type !== "text") {
+            offset += part.value.length;
+            return part;
+          }
+
+          const partStart = offset;
+          const partEnd = offset + part.value.length;
+          offset = partEnd;
+          if (end <= partStart || start >= partEnd) return part;
+
+          const before = part.value.slice(0, Math.max(0, start - partStart));
+          const after = part.value.slice(Math.max(0, end - partStart));
+          const replacement = [];
+          if (before) replacement.push(textPart(before));
+          if (!insertedBlank) {
+            replacement.push({ type: "blank", id: nextBlankId, value: "" });
+            insertedBlank = true;
+          }
+          if (after) replacement.push(textPart(after));
+          return replacement;
+        });
+
+        return { ...card, parts };
+      }),
+    }));
+    setSelectedWord(null);
+    setFocusedBlankId(nextBlankId);
+  };
+
+  const updateBlankWord = (index, id, value) => {
+    setSentenceCards((cards) => ({
+      ...cards,
+      [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
+        cardIndex === index
+          ? {
+              ...card,
+              parts: cardParts(card).map((part) =>
+                part.type === "blank" && part.id === id ? { ...part, value } : part,
+              ),
+            }
+          : card,
+      ),
+    }));
+  };
+
+  const renderSentence = (card, index) => {
+    const selection = selectedWord?.page === currentPage && selectedWord.index === index
+      ? selectedWord
+      : null;
+    let offset = 0;
+    return cardParts(card).map((part, partIndex) => {
+      if (part.type === "blank") {
+        return (
+          <span
+            className="blank-word-card"
+            contentEditable={false}
+            key={`blank-${part.id}`}
+            style={{ "--blank-card-width": `${blankCardWidth(part.value)}px` }}
+          >
+            <input
+              aria-label="填写空白词卡"
+              ref={(element) => {
+                if (element) blankInputs.current[part.id] = element;
+              }}
+              value={part.value}
+              onChange={(event) => updateBlankWord(index, part.id, event.target.value)}
+              onInput={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            />
+          </span>
+        );
+      }
+
+      const partStart = offset;
+      const partEnd = offset + part.value.length;
+      offset = partEnd;
+      if (!selection || selection.end <= partStart || selection.start >= partEnd) {
+        return <span key={`text-${partIndex}`}>{part.value}</span>;
+      }
+
+      const selectionStart = Math.max(0, selection.start - partStart);
+      const selectionEnd = Math.min(part.value.length, selection.end - partStart);
+      return <span key={`text-${partIndex}`}>
+        {part.value.slice(0, selectionStart)}
+        <span className="selected-word">
+          {part.value.slice(selectionStart, selectionEnd)}
+          <button
+            className="delete-word-button"
+            type="button"
+            contentEditable={false}
+            aria-label="删除选中单词"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={deleteSelectedWord}
+          >
+            <img src="/icons/delete-word.svg" alt="" />
+          </button>
+        </span>
+        {part.value.slice(selectionEnd)}
+      </span>;
+    });
+  };
+
+  const currentSentenceCards = sentenceCards[currentPage] ?? [];
+  const hasSentence = currentSentenceCards.length > 0;
+  const activeSentenceIndex = activeSentenceIndexes[currentPage];
+
+  return (
+    <main className="prototype-stage" aria-label="App prototype preview">
+      <section className="app-screen" aria-label="375 by 812 pixel app screen">
+        <header className="top-navigation">
+          <button className="nav-button nav-back" type="button" aria-label="返回">
+            <img src="/icons/back.svg" alt="" />
+          </button>
+
+          <h1
+            className="editable-title"
+            contentEditable
+            suppressContentEditableWarning
+            spellCheck="false"
+            aria-label="可编辑标题"
+          >
+            标题
+          </h1>
+
+          <div className="nav-actions">
+            <button className="nav-button" type="button" aria-label="邀请">
+              <img src="/icons/invite.svg" alt="" />
+            </button>
+            <button className="nav-button" type="button" aria-label="设置">
+              <img src="/icons/settings.svg" alt="" />
+            </button>
+          </div>
+        </header>
+
+        <main className={`notebook-page notebook-page-${currentPageSide}`}>
+          <img
+            src={`/icons/${currentPageSide}-page.svg`}
+            alt={`第 ${currentPage} 页，${currentPageSide === "left" ? "左页" : "右页"}`}
+          />
+        </main>
+
+        <nav className="page-navigation" aria-label="页面导航">
+          <button
+            className="page-arrow page-arrow-previous"
+            type="button"
+            aria-label="上一页"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          />
+          <span>{currentPage} / {pageCount}</span>
+          <button
+            className="page-arrow page-arrow-next"
+            type="button"
+            aria-label="下一页"
+            disabled={currentPage === pageCount}
+            onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
+          />
+        </nav>
+
+        <section className="sentence-area" aria-label="句子区域">
+          {currentSentenceCards.map((card, index) => (
+            <div
+              className={`edit-sentence-card${activeSentenceIndex === index ? " is-active" : ""}`}
+              aria-label={`第 ${index + 1} 个句子卡`}
+              key={index}
+              onClick={() => setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }))}
+            >
+              <img className="edit-sentence-background" src="/icons/edit-sentence.svg" alt="" />
+              <img
+                className="sentence-avatar"
+                src={`/icons/user-${card.avatar}.svg`}
+                alt={`用户 ${card.avatar}`}
+              />
+              <div
+                className="sentence-text"
+                contentEditable
+                suppressContentEditableWarning
+                role="textbox"
+                aria-label={`编辑第 ${index + 1} 个句子`}
+                onFocus={() => {
+                  setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
+                  setFocusedSentence({ page: currentPage, index });
+                }}
+                onBlur={() => setFocusedSentence(null)}
+                onInput={(event) => {
+                  if (event.target === event.currentTarget) updateSentence(index, event.currentTarget.textContent);
+                }}
+                onMouseUp={(event) => selectWord(index, event.currentTarget)}
+                onKeyUp={(event) => selectWord(index, event.currentTarget)}
+              >
+                {renderSentence(card, index)}
+                {focusedSentence?.page === currentPage && focusedSentence.index === index && (
+                  <img className="text-cursor" src="/icons/text-cursor.svg" alt="" contentEditable={false} />
+                )}
+              </div>
+            </div>
+          ))}
+
+          {currentSentenceCards.length < MAX_SENTENCE_CARDS && (
+            <button className="add-sentence-button" type="button" onClick={addSentence}>
+              <img src="/icons/add-sentence.svg" alt="添加句子" />
+            </button>
+          )}
+
+          {!hasSentence && (
+            <div className="sentence-empty-state">
+              <p>Start your first line</p>
+              <p>write your own · or draw a prompt from the deck</p>
+            </div>
+          )}
+
+        </section>
+
+        <p className="sr-only" aria-live="polite">当前第 {currentPage} 页，共 {pageCount} 页</p>
+
+        <button
+          className="add-page-button"
+          type="button"
+          aria-label="添加页面"
+          onClick={addPage}
+          onPointerDown={() => setIsAddPressed(true)}
+          onPointerLeave={() => !releaseTimer.current && setIsAddPressed(false)}
+        >
+          <img
+            src={isAddPressed ? "/icons/add-page-pressed.svg" : "/icons/add-page-default.svg"}
+            alt=""
+          />
+        </button>
+      </section>
+    </main>
+  );
+}
