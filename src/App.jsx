@@ -111,7 +111,16 @@ export default function App() {
     const start = textOffset(element, range.startContainer, range.startOffset);
     if (start === null) return;
     const wordStart = start + rawWord.indexOf(word);
-    setSelectedWord({ page: currentPage, index, start: wordStart, end: wordStart + word.length });
+    const wordRect = range.getBoundingClientRect();
+    const cardRect = element.closest(".edit-sentence-card")?.getBoundingClientRect();
+    setSelectedWord({
+      page: currentPage,
+      index,
+      start: wordStart,
+      end: wordStart + word.length,
+      left: Math.max(0, wordRect.right - (cardRect?.left ?? 0) + 4),
+      top: Math.max(0, wordRect.top - (cardRect?.top ?? 0) - 30),
+    });
   };
 
   const deleteSelectedWord = () => {
@@ -172,12 +181,10 @@ export default function App() {
   };
 
   const renderSentence = (card, index) => {
-    const selection = selectedWord?.page === currentPage && selectedWord.index === index
-      ? selectedWord
-      : null;
     let offset = 0;
     return cardParts(card).map((part, partIndex) => {
       if (part.type === "blank") {
+        offset += part.value.length;
         return (
           <span
             className="blank-word-card"
@@ -196,7 +203,7 @@ export default function App() {
               }
             }}
           >
-            {part.value || " "}
+            {part.value}
           </span>
         );
       }
@@ -204,29 +211,7 @@ export default function App() {
       const partStart = offset;
       const partEnd = offset + part.value.length;
       offset = partEnd;
-      if (!selection || selection.end <= partStart || selection.start >= partEnd) {
-        return <span key={`text-${partIndex}`}>{part.value}</span>;
-      }
-
-      const selectionStart = Math.max(0, selection.start - partStart);
-      const selectionEnd = Math.min(part.value.length, selection.end - partStart);
-      return <span key={`text-${partIndex}`}>
-        {part.value.slice(0, selectionStart)}
-        <span className="selected-word">
-          {part.value.slice(selectionStart, selectionEnd)}
-          <button
-            className="delete-word-button"
-            type="button"
-            contentEditable={false}
-            aria-label="删除选中单词"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={deleteSelectedWord}
-          >
-            <img src={icon("delete-word.svg")} alt="" />
-          </button>
-        </span>
-        {part.value.slice(selectionEnd)}
-      </span>;
+      return <span key={`text-${partIndex}`}>{part.value}</span>;
     });
   };
 
@@ -328,6 +313,19 @@ export default function App() {
               >
                 {renderSentence(card, index)}
               </div>
+              {selectedWord?.page === currentPage && selectedWord.index === index && (
+                <button
+                  className="delete-word-button"
+                  type="button"
+                  contentEditable={false}
+                  aria-label="删除选中单词"
+                  style={{ left: selectedWord.left, top: selectedWord.top }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={deleteSelectedWord}
+                >
+                  <img src={icon("delete-word.svg")} alt="" />
+                </button>
+              )}
             </div>
           ))}
 

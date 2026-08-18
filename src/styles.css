@@ -253,9 +253,9 @@ html, body, #root {
   outline: none;
 }
 
-.selected-word {
-  position: relative;
+.sentence-text::selection {
   color: #3465d6;
+  background: transparent;
   text-decoration: underline;
   text-decoration-color: #3465d6;
   text-decoration-thickness: 2px;
@@ -264,8 +264,6 @@ html, body, #root {
 
 .delete-word-button {
   position: absolute;
-  top: -34px;
-  left: calc(100% + 4px);
   z-index: 2;
   width: 40px;
   height: 40px;
