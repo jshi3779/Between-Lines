@@ -18,21 +18,14 @@ export default function App() {
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({});
   const [focusedSentence, setFocusedSentence] = useState(null);
   const [selectedWord, setSelectedWord] = useState(null);
-  const [focusedBlankId, setFocusedBlankId] = useState(null);
+  const [blankEditor, setBlankEditor] = useState(null);
   const [hasSeedSentence, setHasSeedSentence] = useState(false);
   const [isAddPressed, setIsAddPressed] = useState(false);
   const releaseTimer = useRef(null);
   const blankId = useRef(0);
-  const blankInputs = useRef({});
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
 
   useEffect(() => () => clearTimeout(releaseTimer.current), []);
-
-  useEffect(() => {
-    if (focusedBlankId === null) return;
-    blankInputs.current[focusedBlankId]?.focus();
-    setFocusedBlankId(null);
-  }, [focusedBlankId, sentenceCards]);
 
   const addPage = () => {
     setIsAddPressed(true);
@@ -64,11 +57,27 @@ export default function App() {
     setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: nextIndex }));
   };
 
-  const updateSentence = (index, text) => {
+  const updateSentenceFromElement = (index, element) => {
+    const existingParts = cardParts((sentenceCards[currentPage] ?? [])[index] ?? {});
+    const parts = Array.from(element.childNodes).flatMap((node) => {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent ? [textPart(node.textContent)] : [];
+      if (!(node instanceof HTMLElement) || node.classList.contains("text-cursor")) return [];
+      if (node.classList.contains("blank-word-card")) {
+        const id = Number(node.dataset.blankId);
+        return existingParts.find((part) => part.type === "blank" && part.id === id) ?? [];
+      }
+      return node.textContent ? [textPart(node.textContent)] : [];
+    });
+    const normalizedParts = parts.reduce((result, part) => {
+      const previous = result.at(-1);
+      if (part.type === "text" && previous?.type === "text") previous.value += part.value;
+      else result.push(part);
+      return result;
+    }, []);
     setSentenceCards((cards) => ({
       ...cards,
       [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
-        cardIndex === index ? { ...card, parts: [textPart(text)] } : card,
+        cardIndex === index ? { ...card, parts: normalizedParts } : card,
       ),
     }));
     setSelectedWord(null);
@@ -145,7 +154,6 @@ export default function App() {
       }),
     }));
     setSelectedWord(null);
-    setFocusedBlankId(nextBlankId);
   };
 
   const updateBlankWord = (index, id, value) => {
@@ -176,18 +184,20 @@ export default function App() {
             className="blank-word-card"
             contentEditable={false}
             key={`blank-${part.id}`}
+            data-blank-id={part.id}
             style={{ "--blank-card-width": `${blankCardWidth(part.value)}px` }}
+            role="button"
+            tabIndex={0}
+            aria-label="填写空白词卡"
+            onClick={() => setBlankEditor({ page: currentPage, index, id: part.id, value: part.value })}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setBlankEditor({ page: currentPage, index, id: part.id, value: part.value });
+              }
+            }}
           >
-            <input
-              aria-label="填写空白词卡"
-              ref={(element) => {
-                if (element) blankInputs.current[part.id] = element;
-              }}
-              value={part.value}
-              onChange={(event) => updateBlankWord(index, part.id, event.target.value)}
-              onInput={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            />
+            {part.value || " "}
           </span>
         );
       }
@@ -291,7 +301,12 @@ export default function App() {
               className={`edit-sentence-card${activeSentenceIndex === index ? " is-active" : ""}`}
               aria-label={`第 ${index + 1} 个句子卡`}
               key={index}
-              onClick={() => setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }))}
+              onClick={(event) => {
+                setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
+                if (!event.target.closest(".blank-word-card, .delete-word-button")) {
+                  event.currentTarget.querySelector(".sentence-text")?.focus();
+                }
+              }}
             >
               <img className="edit-sentence-background" src={icon("edit-sentence.svg")} alt="" />
               <img
@@ -310,9 +325,7 @@ export default function App() {
                   setFocusedSentence({ page: currentPage, index });
                 }}
                 onBlur={() => setFocusedSentence(null)}
-                onInput={(event) => {
-                  if (event.target === event.currentTarget) updateSentence(index, event.currentTarget.textContent);
-                }}
+                onInput={(event) => updateSentenceFromElement(index, event.currentTarget)}
                 onMouseUp={(event) => selectWord(index, event.currentTarget)}
                 onKeyUp={(event) => selectWord(index, event.currentTarget)}
               >
@@ -354,6 +367,37 @@ export default function App() {
             alt=""
           />
         </button>
+
+        {blankEditor && (
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="填写空白词卡">
+            <div className="blank-word-dialog-panel">
+              <label htmlFor="blank-word-entry">填写一个新单词</label>
+              <input
+                id="blank-word-entry"
+                autoFocus
+                value={blankEditor.value}
+                onChange={(event) => setBlankEditor((editor) => ({ ...editor, value: event.target.value }))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    updateBlankWord(blankEditor.index, blankEditor.id, blankEditor.value);
+                    setBlankEditor(null);
+                  }
+                  if (event.key === "Escape") setBlankEditor(null);
+                }}
+              />
+              <div className="blank-word-dialog-actions">
+                <button type="button" onClick={() => setBlankEditor(null)}>取消</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateBlankWord(blankEditor.index, blankEditor.id, blankEditor.value);
+                    setBlankEditor(null);
+                  }}
+                >保存</button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

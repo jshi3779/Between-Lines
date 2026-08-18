@@ -309,21 +309,66 @@ html, body, #root {
   margin: 0 2px;
   vertical-align: middle;
   background: var(--blank-word-card-icon) center / 100% 31px no-repeat;
+  cursor: pointer;
 }
 
-.blank-word-card input {
+.blank-word-card:focus-visible {
+  outline: 2px solid #3465d6;
+  outline-offset: 2px;
+}
+
+.blank-word-dialog {
   position: absolute;
   inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgb(36 34 34 / 26%);
+}
+
+.blank-word-dialog-panel {
+  box-sizing: border-box;
+  width: 300px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(36 34 34 / 25%);
+  color: #242222;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 18px;
+}
+
+.blank-word-dialog-panel label,
+.blank-word-dialog-panel input {
+  display: block;
   width: 100%;
-  height: 100%;
-  padding: 3px 10px;
-  border: 0;
-  background: transparent;
+}
+
+.blank-word-dialog-panel input {
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #79746d;
+  border-radius: 8px;
   color: #242222;
   font: inherit;
-  line-height: 25px;
-  outline: none;
-  z-index: 1;
+}
+
+.blank-word-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.blank-word-dialog-actions button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #ececea;
+  color: #242222;
+  font: inherit;
+  cursor: pointer;
 }
 
 .sentence-empty-state {
