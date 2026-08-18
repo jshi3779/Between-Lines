@@ -149,8 +149,8 @@ html, body, #root {
   padding: 0;
   border: 0;
   background-color: #79746d;
-  -webkit-mask: url("/icons/back.svg") center / contain no-repeat;
-  mask: url("/icons/back.svg") center / contain no-repeat;
+  -webkit-mask: var(--back-icon) center / contain no-repeat;
+  mask: var(--back-icon) center / contain no-repeat;
   cursor: pointer;
 }
 
@@ -308,7 +308,7 @@ html, body, #root {
   height: 31px;
   margin: 0 2px;
   vertical-align: middle;
-  background: url("/icons/blank-word-card.svg") center / 100% 31px no-repeat;
+  background: var(--blank-word-card-icon) center / 100% 31px no-repeat;
 }
 
 .blank-word-card input {

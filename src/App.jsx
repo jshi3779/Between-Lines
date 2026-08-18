@@ -9,6 +9,7 @@ const STARTER_SENTENCES = [
 const textPart = (value) => ({ type: "text", value });
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
 const blankCardWidth = (value) => Math.min(250, Math.max(88, 24 + value.length * 12));
+const icon = (file) => `${import.meta.env.BASE_URL}icons/${file}`;
 
 export default function App() {
   const [pageCount, setPageCount] = useState(1);
@@ -212,7 +213,7 @@ export default function App() {
             onMouseDown={(event) => event.preventDefault()}
             onClick={deleteSelectedWord}
           >
-            <img src="/icons/delete-word.svg" alt="" />
+            <img src={icon("delete-word.svg")} alt="" />
           </button>
         </span>
         {part.value.slice(selectionEnd)}
@@ -226,10 +227,17 @@ export default function App() {
 
   return (
     <main className="prototype-stage" aria-label="App prototype preview">
-      <section className="app-screen" aria-label="375 by 812 pixel app screen">
+      <section
+        className="app-screen"
+        aria-label="375 by 812 pixel app screen"
+        style={{
+          "--back-icon": `url("${icon("back.svg")}")`,
+          "--blank-word-card-icon": `url("${icon("blank-word-card.svg")}")`,
+        }}
+      >
         <header className="top-navigation">
           <button className="nav-button nav-back" type="button" aria-label="返回">
-            <img src="/icons/back.svg" alt="" />
+            <img src={icon("back.svg")} alt="" />
           </button>
 
           <h1
@@ -244,17 +252,17 @@ export default function App() {
 
           <div className="nav-actions">
             <button className="nav-button" type="button" aria-label="邀请">
-              <img src="/icons/invite.svg" alt="" />
+              <img src={icon("invite.svg")} alt="" />
             </button>
             <button className="nav-button" type="button" aria-label="设置">
-              <img src="/icons/settings.svg" alt="" />
+              <img src={icon("settings.svg")} alt="" />
             </button>
           </div>
         </header>
 
         <main className={`notebook-page notebook-page-${currentPageSide}`}>
           <img
-            src={`/icons/${currentPageSide}-page.svg`}
+            src={icon(`${currentPageSide}-page.svg`)}
             alt={`第 ${currentPage} 页，${currentPageSide === "left" ? "左页" : "右页"}`}
           />
         </main>
@@ -285,10 +293,10 @@ export default function App() {
               key={index}
               onClick={() => setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }))}
             >
-              <img className="edit-sentence-background" src="/icons/edit-sentence.svg" alt="" />
+              <img className="edit-sentence-background" src={icon("edit-sentence.svg")} alt="" />
               <img
                 className="sentence-avatar"
-                src={`/icons/user-${card.avatar}.svg`}
+                src={icon(`user-${card.avatar}.svg`)}
                 alt={`用户 ${card.avatar}`}
               />
               <div
@@ -310,7 +318,7 @@ export default function App() {
               >
                 {renderSentence(card, index)}
                 {focusedSentence?.page === currentPage && focusedSentence.index === index && (
-                  <img className="text-cursor" src="/icons/text-cursor.svg" alt="" contentEditable={false} />
+                  <img className="text-cursor" src={icon("text-cursor.svg")} alt="" contentEditable={false} />
                 )}
               </div>
             </div>
@@ -318,7 +326,7 @@ export default function App() {
 
           {currentSentenceCards.length < MAX_SENTENCE_CARDS && (
             <button className="add-sentence-button" type="button" onClick={addSentence}>
-              <img src="/icons/add-sentence.svg" alt="添加句子" />
+              <img src={icon("add-sentence.svg")} alt="添加句子" />
             </button>
           )}
 
@@ -342,7 +350,7 @@ export default function App() {
           onPointerLeave={() => !releaseTimer.current && setIsAddPressed(false)}
         >
           <img
-            src={isAddPressed ? "/icons/add-page-pressed.svg" : "/icons/add-page-default.svg"}
+            src={icon(isAddPressed ? "add-page-pressed.svg" : "add-page-default.svg")}
             alt=""
           />
         </button>
