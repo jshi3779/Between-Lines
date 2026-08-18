@@ -56,7 +56,7 @@ export default function App() {
     setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: nextIndex }));
   };
 
-  const updateSentenceFromElement = (index, element) => {
+  const partsFromElement = (index, element) => {
     const existingParts = cardParts((sentenceCards[currentPage] ?? [])[index] ?? {});
     const parts = Array.from(element.childNodes).flatMap((node) => {
       if (node.nodeType === Node.TEXT_NODE) return node.textContent ? [textPart(node.textContent)] : [];
@@ -73,12 +73,20 @@ export default function App() {
       else result.push(part);
       return result;
     }, []);
+    return normalizedParts;
+  };
+
+  const saveSentenceParts = (index, parts) => {
     setSentenceCards((cards) => ({
       ...cards,
       [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
-        cardIndex === index ? { ...card, parts: normalizedParts } : card,
+        cardIndex === index ? { ...card, parts } : card,
       ),
     }));
+  };
+
+  const updateSentenceFromElement = (index, element) => {
+    saveSentenceParts(index, partsFromElement(index, element));
     setSelectedWord(null);
   };
 
@@ -113,6 +121,8 @@ export default function App() {
     const wordStart = start + rawWord.indexOf(word);
     const wordRect = range.getBoundingClientRect();
     const cardRect = element.closest(".edit-sentence-card")?.getBoundingClientRect();
+    const parts = partsFromElement(index, element);
+    saveSentenceParts(index, parts);
     setSelectedWord({
       page: currentPage,
       index,
@@ -120,6 +130,7 @@ export default function App() {
       end: wordStart + word.length,
       left: Math.max(0, wordRect.right - (cardRect?.left ?? 0) + 4),
       top: Math.max(0, wordRect.top - (cardRect?.top ?? 0) - 30),
+      parts,
     });
   };
 
@@ -135,7 +146,7 @@ export default function App() {
 
         let offset = 0;
         let insertedBlank = false;
-        const parts = cardParts(card).flatMap((part) => {
+        const parts = (selectedWord.parts ?? cardParts(card)).flatMap((part) => {
           if (part.type !== "text") {
             offset += part.value.length;
             return part;
@@ -307,7 +318,7 @@ export default function App() {
                 onFocus={() => {
                   setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
                 }}
-                onInput={(event) => updateSentenceFromElement(index, event.currentTarget)}
+                onBlur={(event) => updateSentenceFromElement(index, event.currentTarget)}
                 onMouseUp={(event) => selectWord(index, event.currentTarget)}
                 onKeyUp={(event) => selectWord(index, event.currentTarget)}
               >
