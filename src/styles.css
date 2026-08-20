@@ -262,14 +262,19 @@ html, body, #root {
 }
 
 .add-word-card-button {
-  flex: 0 0 54px;
+  position: absolute;
+  z-index: 3;
   width: 54px;
   height: 32px;
-  margin: -5px 0 0 4px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   cursor: pointer;
+}
+
+.add-word-card-button[hidden] {
+  display: none;
 }
 
 .add-word-card-button img {

@@ -23,6 +23,8 @@ export default function App() {
   const releaseTimer = useRef(null);
   const blankId = useRef(0);
   const dialogInput = useRef(null);
+  const addWordCardButtons = useRef({});
+  const caretPositions = useRef({});
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
 
   useEffect(() => () => clearTimeout(releaseTimer.current), []);
@@ -192,18 +194,67 @@ export default function App() {
     }));
   };
 
+  const positionAddWordCardButton = (index, element) => {
+    const key = `${currentPage}-${index}`;
+    const button = addWordCardButtons.current[key];
+    const selection = window.getSelection();
+    if (!button || !selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+      if (button) button.hidden = true;
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!element.contains(range.startContainer)) {
+      button.hidden = true;
+      return;
+    }
+    const offset = textOffset(element, range.startContainer, range.startOffset);
+    if (offset === null) return;
+    const caret = range.getBoundingClientRect();
+    const editor = element.closest(".sentence-editor")?.getBoundingClientRect();
+    if (!editor) return;
+    button.hidden = false;
+    button.style.left = `${Math.max(0, caret.left - editor.left + 3)}px`;
+    button.style.top = `${Math.max(0, caret.top - editor.top - 5)}px`;
+    caretPositions.current[key] = { offset, parts: partsFromElement(index, element) };
+  };
+
   const appendBlankWordCard = (index) => {
     const id = blankId.current + 1;
     blankId.current = id;
+    const key = `${currentPage}-${index}`;
+    const caret = caretPositions.current[key];
+    const sourceParts = caret?.parts ?? cardParts((sentenceCards[currentPage] ?? [])[index] ?? {});
+    const insertAt = caret?.offset ?? sourceParts.reduce((total, part) => total + part.value.length, 0);
+    let offset = 0;
+    let inserted = false;
+    const parts = sourceParts.flatMap((part) => {
+      if (part.type !== "text") {
+        offset += part.value.length;
+        return part;
+      }
+      const partStart = offset;
+      const partEnd = offset + part.value.length;
+      offset = partEnd;
+      if (inserted || insertAt < partStart || insertAt > partEnd) return part;
+      inserted = true;
+      const splitAt = insertAt - partStart;
+      const before = part.value.slice(0, splitAt);
+      const after = part.value.slice(splitAt);
+      return [
+        ...(before ? [textPart(before)] : []),
+        { type: "blank", id, value: "" },
+        ...(after ? [textPart(after)] : []),
+      ];
+    });
+    if (!inserted) parts.push({ type: "blank", id, value: "" });
     setSentenceCards((cards) => ({
       ...cards,
       [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
         cardIndex === index
-          ? { ...card, parts: [...cardParts(card), { type: "blank", id, value: "" }] }
+          ? { ...card, parts }
           : card,
       ),
     }));
-    setBlankEditor({ page: currentPage, index, id, value: "" });
   };
 
   const deleteSentenceCard = (index) => {
@@ -346,10 +397,15 @@ export default function App() {
                   aria-label={`Edit sentence ${index + 1}`}
                   onFocus={() => {
                     setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
+                    requestAnimationFrame(() => positionAddWordCardButton(index, document.activeElement));
                   }}
+                  onInput={(event) => positionAddWordCardButton(index, event.currentTarget)}
                   onBlur={(event) => updateSentenceFromElement(index, event.currentTarget)}
-                  onMouseUp={(event) => selectWord(index, event.currentTarget)}
-                  onKeyUp={(event) => selectWord(index, event.currentTarget)}
+                  onMouseUp={(event) => {
+                    selectWord(index, event.currentTarget);
+                    positionAddWordCardButton(index, event.currentTarget);
+                  }}
+                  onKeyUp={(event) => positionAddWordCardButton(index, event.currentTarget)}
                 >
                   {renderSentence(card, index)}
                 </div>
@@ -358,6 +414,10 @@ export default function App() {
                     className="add-word-card-button"
                     type="button"
                     aria-label="Add blank word card"
+                    hidden
+                    ref={(element) => {
+                      if (element) addWordCardButtons.current[`${currentPage}-${index}`] = element;
+                    }}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => {
                       event.stopPropagation();
