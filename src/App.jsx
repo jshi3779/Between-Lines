@@ -205,7 +205,7 @@ export default function App() {
             style={{ "--blank-card-width": `${blankCardWidth(part.value)}px` }}
             role="button"
             tabIndex={0}
-            aria-label="填写空白词卡"
+            aria-label="Fill blank word card"
             onClick={() => setBlankEditor({ page: currentPage, index, id: part.id, value: part.value })}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -241,7 +241,7 @@ export default function App() {
         }}
       >
         <header className="top-navigation">
-          <button className="nav-button nav-back" type="button" aria-label="返回">
+          <button className="nav-button nav-back" type="button" aria-label="Back">
             <img src={icon("back.svg")} alt="" />
           </button>
 
@@ -250,16 +250,16 @@ export default function App() {
             contentEditable
             suppressContentEditableWarning
             spellCheck="false"
-            aria-label="可编辑标题"
+            aria-label="Editable title"
           >
-            标题
+            Untitled
           </h1>
 
           <div className="nav-actions">
-            <button className="nav-button" type="button" aria-label="邀请">
+            <button className="nav-button" type="button" aria-label="Invite">
               <img src={icon("invite.svg")} alt="" />
             </button>
-            <button className="nav-button" type="button" aria-label="设置">
+            <button className="nav-button" type="button" aria-label="Settings">
               <img src={icon("settings.svg")} alt="" />
             </button>
           </div>
@@ -268,15 +268,15 @@ export default function App() {
         <main className={`notebook-page notebook-page-${currentPageSide}`}>
           <img
             src={icon(`${currentPageSide}-page.svg`)}
-            alt={`第 ${currentPage} 页，${currentPageSide === "left" ? "左页" : "右页"}`}
+            alt={`Page ${currentPage}, ${currentPageSide} page`}
           />
         </main>
 
-        <nav className="page-navigation" aria-label="页面导航">
+        <nav className="page-navigation" aria-label="Page navigation">
           <button
             className="page-arrow page-arrow-previous"
             type="button"
-            aria-label="上一页"
+            aria-label="Previous page"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
           />
@@ -284,17 +284,17 @@ export default function App() {
           <button
             className="page-arrow page-arrow-next"
             type="button"
-            aria-label="下一页"
+            aria-label="Next page"
             disabled={currentPage === pageCount}
             onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
           />
         </nav>
 
-        <section className="sentence-area" aria-label="句子区域">
+        <section className="sentence-area" aria-label="Sentence area">
           {currentSentenceCards.map((card, index) => (
             <div
               className={`edit-sentence-card${activeSentenceIndex === index ? " is-active" : ""}`}
-              aria-label={`第 ${index + 1} 个句子卡`}
+              aria-label={`Sentence card ${index + 1}`}
               key={index}
               onClick={(event) => {
                 setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
@@ -307,14 +307,14 @@ export default function App() {
               <img
                 className="sentence-avatar"
                 src={icon(`user-${card.avatar}.svg`)}
-                alt={`用户 ${card.avatar}`}
+                alt={`User ${card.avatar}`}
               />
               <div
                 className="sentence-text"
                 contentEditable
                 suppressContentEditableWarning
                 role="textbox"
-                aria-label={`编辑第 ${index + 1} 个句子`}
+                aria-label={`Edit sentence ${index + 1}`}
                 onFocus={() => {
                   setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
                 }}
@@ -329,7 +329,7 @@ export default function App() {
                   className="delete-word-button"
                   type="button"
                   contentEditable={false}
-                  aria-label="删除选中单词"
+                  aria-label="Delete selected word"
                   style={{ left: selectedWord.left, top: selectedWord.top }}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={deleteSelectedWord}
@@ -342,7 +342,7 @@ export default function App() {
 
           {currentSentenceCards.length < MAX_SENTENCE_CARDS && (
             <button className="add-sentence-button" type="button" onClick={addSentence}>
-              <img src={icon("add-sentence.svg")} alt="添加句子" />
+              <img src={icon("add-sentence.svg")} alt="Add sentence" />
             </button>
           )}
 
@@ -355,12 +355,12 @@ export default function App() {
 
         </section>
 
-        <p className="sr-only" aria-live="polite">当前第 {currentPage} 页，共 {pageCount} 页</p>
+        <p className="sr-only" aria-live="polite">Page {currentPage} of {pageCount}</p>
 
         <button
           className="add-page-button"
           type="button"
-          aria-label="添加页面"
+          aria-label="Add page"
           onClick={addPage}
           onPointerDown={() => setIsAddPressed(true)}
           onPointerLeave={() => !releaseTimer.current && setIsAddPressed(false)}
@@ -372,9 +372,9 @@ export default function App() {
         </button>
 
         {blankEditor && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="填写空白词卡">
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="Fill blank word card">
             <div className="blank-word-dialog-panel">
-              <label htmlFor="blank-word-entry">填写一个新单词</label>
+              <label htmlFor="blank-word-entry">Write a replacement word</label>
               <input
                 id="blank-word-entry"
                 autoFocus
@@ -389,14 +389,14 @@ export default function App() {
                 }}
               />
               <div className="blank-word-dialog-actions">
-                <button type="button" onClick={() => setBlankEditor(null)}>取消</button>
+                <button type="button" onClick={() => setBlankEditor(null)}>Cancel</button>
                 <button
                   type="button"
                   onClick={() => {
                     updateBlankWord(blankEditor.index, blankEditor.id, blankEditor.value);
                     setBlankEditor(null);
                   }}
-                >保存</button>
+                >Save</button>
               </div>
             </div>
           </div>
