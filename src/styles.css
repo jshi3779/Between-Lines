@@ -414,24 +414,20 @@ html, body, #root {
 
 .content-editor-tabs button {
   position: relative;
+  display: grid;
+  width: 41px;
+  height: 24px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: #9b9da3;
-  font: inherit;
-  text-transform: uppercase;
+  place-items: center;
   cursor: pointer;
 }
 
-.content-editor-tabs button.is-selected { color: #1e2026; }
-.content-editor-tabs button.is-selected::after {
-  position: absolute;
-  right: 0;
-  bottom: -8px;
-  left: 0;
-  height: 2px;
-  background: currentcolor;
-  content: "";
+.content-editor-tabs button img {
+  display: block;
+  max-width: 41px;
+  max-height: 24px;
 }
 
 .content-editor-mode { width: 100%; }

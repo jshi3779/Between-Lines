@@ -516,17 +516,18 @@ export default function App() {
               <img className="content-editor-sheet-background" src={icon("sentence-add-dialog.svg")} alt="" />
               <button className="content-sheet-close" type="button" aria-label="Close editor" onClick={() => setBlankEditor(null)}>×</button>
               <nav className="content-editor-tabs" aria-label="Content type">
-                {[
-                  ["word", "Word"],
-                  ["photo", "Photo"],
-                  ["audio", "Audio"],
-                ].map(([mode, label]) => (
+                {["word", "photo", "audio"].map((mode) => (
                   <button
                     className={editorMode === mode ? "is-selected" : ""}
                     key={mode}
                     type="button"
                     onClick={() => setEditorMode(mode)}
-                  >{label}</button>
+                  >
+                    <img
+                      src={icon(`content-tab-${mode}-${editorMode === mode ? "selected" : "default"}.svg`)}
+                      alt={mode}
+                    />
+                  </button>
                 ))}
               </nav>
 
