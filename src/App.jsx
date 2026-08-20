@@ -365,6 +365,12 @@ export default function App() {
           </div>
         </header>
 
+        <div className="user-labels" aria-label="Notebook collaborators">
+          {[1, 2, 3, 4].map((user) => (
+            <img key={user} src={icon(`user-label-${user}.svg`)} alt={`User ${user}`} />
+          ))}
+        </div>
+
         <main className={`notebook-page notebook-page-${currentPageSide}`}>
           <img
             src={icon(`${currentPageSide}-page.svg`)}
