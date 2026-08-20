@@ -22,6 +22,7 @@ export default function App() {
   const [isAddPressed, setIsAddPressed] = useState(false);
   const releaseTimer = useRef(null);
   const blankId = useRef(0);
+  const dialogInput = useRef(null);
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
 
   useEffect(() => () => clearTimeout(releaseTimer.current), []);
@@ -191,6 +192,20 @@ export default function App() {
     }));
   };
 
+  const appendBlankWordCard = (index) => {
+    const id = blankId.current + 1;
+    blankId.current = id;
+    setSentenceCards((cards) => ({
+      ...cards,
+      [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
+        cardIndex === index
+          ? { ...card, parts: [...cardParts(card), { type: "blank", id, value: "" }] }
+          : card,
+      ),
+    }));
+    setBlankEditor({ page: currentPage, index, id, value: "" });
+  };
+
   const deleteSentenceCard = (index) => {
     const nextActiveIndex = Math.min(index, Math.max(0, (sentenceCards[currentPage] ?? []).length - 2));
     setSentenceCards((cards) => ({
@@ -322,20 +337,36 @@ export default function App() {
                 src={icon(`user-${card.avatar}.svg`)}
                 alt={`User ${card.avatar}`}
               />
-              <div
-                className="sentence-text"
-                contentEditable
-                suppressContentEditableWarning
-                role="textbox"
-                aria-label={`Edit sentence ${index + 1}`}
-                onFocus={() => {
-                  setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
-                }}
-                onBlur={(event) => updateSentenceFromElement(index, event.currentTarget)}
-                onMouseUp={(event) => selectWord(index, event.currentTarget)}
-                onKeyUp={(event) => selectWord(index, event.currentTarget)}
-              >
-                {renderSentence(card, index)}
+              <div className="sentence-editor">
+                <div
+                  className="sentence-text"
+                  contentEditable
+                  suppressContentEditableWarning
+                  role="textbox"
+                  aria-label={`Edit sentence ${index + 1}`}
+                  onFocus={() => {
+                    setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
+                  }}
+                  onBlur={(event) => updateSentenceFromElement(index, event.currentTarget)}
+                  onMouseUp={(event) => selectWord(index, event.currentTarget)}
+                  onKeyUp={(event) => selectWord(index, event.currentTarget)}
+                >
+                  {renderSentence(card, index)}
+                </div>
+                {activeSentenceIndex === index && (
+                  <button
+                    className="add-word-card-button"
+                    type="button"
+                    aria-label="Add blank word card"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      appendBlankWordCard(index);
+                    }}
+                  >
+                    <img src={icon("add-word-card.svg")} alt="" />
+                  </button>
+                )}
               </div>
               {activeSentenceIndex === index && (
                 <button
@@ -401,15 +432,16 @@ export default function App() {
         {blankEditor && (
           <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="Fill blank word card">
             <div className="blank-word-dialog-panel">
+              <img className="sentence-add-dialog-background" src={icon("sentence-add-dialog.svg")} alt="" />
               <label htmlFor="blank-word-entry">Write a replacement word</label>
               <input
                 id="blank-word-entry"
                 autoFocus
-                value={blankEditor.value}
-                onChange={(event) => setBlankEditor((editor) => ({ ...editor, value: event.target.value }))}
+                ref={dialogInput}
+                defaultValue={blankEditor.value}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
-                    updateBlankWord(blankEditor.index, blankEditor.id, blankEditor.value);
+                    updateBlankWord(blankEditor.index, blankEditor.id, event.currentTarget.value);
                     setBlankEditor(null);
                   }
                   if (event.key === "Escape") setBlankEditor(null);
@@ -420,7 +452,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    updateBlankWord(blankEditor.index, blankEditor.id, blankEditor.value);
+                    updateBlankWord(blankEditor.index, blankEditor.id, dialogInput.current?.value ?? "");
                     setBlankEditor(null);
                   }}
                 >Save</button>
