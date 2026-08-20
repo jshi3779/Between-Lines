@@ -350,39 +350,161 @@ html, body, #root {
   position: absolute;
   inset: 0;
   z-index: 20;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: flex-end;
   background: rgb(36 34 34 / 26%);
 }
 
-.blank-word-dialog-panel {
+.content-editor-sheet {
   position: relative;
   box-sizing: border-box;
-  width: 321px;
-  min-height: 249px;
-  padding: 56px 32px 30px;
-  background: transparent;
+  width: 100%;
+  min-height: 289px;
+  padding: 40px;
+  border-radius: 24px 24px 0 0;
+  background: #fdfdfb;
+  box-shadow: 0 -8px 24px rgb(36 34 34 / 18%);
   color: #242222;
   font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
-  font-size: 18px;
+  font-size: 12.5px;
 }
 
-.sentence-add-dialog-background {
+.content-sheet-close {
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  display: block;
-  width: 321px;
-  height: 249px;
-  filter: drop-shadow(0 12px 32px rgb(36 34 34 / 25%));
+  top: 24px;
+  right: 40px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1e2026;
+  font: inherit;
+  font-size: 24px;
+  line-height: 18px;
+  cursor: pointer;
 }
 
-.blank-word-dialog-panel label,
-.blank-word-dialog-panel input {
-  display: block;
-  width: 100%;
+.content-editor-tabs {
+  display: flex;
+  gap: 50px;
+  height: 23px;
+  margin-bottom: 28px;
 }
 
+.content-editor-tabs button {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9b9da3;
+  font: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.content-editor-tabs button.is-selected { color: #1e2026; }
+.content-editor-tabs button.is-selected::after {
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  height: 2px;
+  background: currentcolor;
+  content: "";
+}
+
+.content-editor-mode { width: 100%; }
+
+.word-entry {
+  display: flex;
+  align-items: center;
+  height: 31px;
+  padding: 0 7px 0 12px;
+  border: 5px solid #ecedf0;
+  border-radius: 9px;
+  background: #ecedf0;
+}
+
+.word-entry input,
+.word-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #242222;
+  font: inherit;
+  outline: none;
+}
+
+.word-entry span {
+  padding: 3px 5px;
+  border-radius: 9px;
+  background: #000;
+  color: #fff;
+  font-size: 10px;
+}
+
+.word-categories,
+.word-suggestions,
+.content-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 15px;
+}
+
+.word-categories { gap: 6px; overflow: hidden; }
+.word-categories button,
+.word-suggestions button,
+.content-actions button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 10px;
+  background: #efe7db;
+  color: #5a5c62;
+  font: inherit;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.word-categories button.is-selected,
+.content-actions button { background: #32343a; color: #fff; }
+
+.word-search {
+  display: block;
+  margin-top: 15px;
+  padding: 6px 12px;
+  border: 5px solid #ecedf0;
+  border-radius: 9px;
+  background: #ecedf0;
+}
+.word-suggestions { flex-wrap: wrap; margin-top: 10px; }
+.word-suggestions button { border-radius: 8px; text-transform: none; }
+
+.photo-mode > p,
+.recent-label {
+  display: block;
+  margin: 16px 0 8px;
+  color: #96989e;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.content-actions { gap: 13px; margin-top: 0; }
+.content-actions button { flex: 1; }
+.recent-photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.recent-photo-grid button { aspect-ratio: 1; border: 0; border-radius: 8px; background: linear-gradient(135deg, #d7d1ca, #88979c, #d9ae9d); cursor: pointer; }
+.recent-photo-grid button:nth-child(2n) { background: linear-gradient(135deg, #bc9a7a, #d6d7cf, #637b70); }
+.recent-photo-grid button:nth-child(3n) { background: linear-gradient(135deg, #484d58, #c1b6a7, #e2d4be); }
+
+.audio-mode { text-align: center; }
+.record-button { display: block; width: 50px; height: 50px; margin: 8px auto 5px; border: 0; border-radius: 50%; background: #32343a; color: #fdfdfb; font-size: 20px; cursor: pointer; }
+.audio-mode > p { margin: 0; color: #464850; }
+.audio-mode .recent-label { margin-top: 16px; text-align: left; }
+.audio-clip { display: flex; align-items: center; gap: 9px; width: 100%; height: 37px; margin-top: 10px; padding: 0 12px; border: 0; border-radius: 10px; background: #32343a; color: #fff; font: inherit; font-size: 8.5px; cursor: pointer; }
+.audio-clip i { flex: 1; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, #fff 0 2px, transparent 2px 4px); }
+.audio-clip b { font-size: 19px; font-weight: 400; transform: rotate(90deg); }
+
+/* Legacy dialog selectors are retained only for older saved DOM states. */
 .blank-word-dialog-panel input {
   box-sizing: border-box;
   margin-top: 10px;

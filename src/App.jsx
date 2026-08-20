@@ -18,6 +18,7 @@ export default function App() {
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({});
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
+  const [editorMode, setEditorMode] = useState("word");
   const [hasSeedSentence, setHasSeedSentence] = useState(false);
   const [isAddPressed, setIsAddPressed] = useState(false);
   const releaseTimer = useRef(null);
@@ -285,10 +286,14 @@ export default function App() {
             role="button"
             tabIndex={0}
             aria-label="Fill blank word card"
-            onClick={() => setBlankEditor({ page: currentPage, index, id: part.id, value: part.value })}
+            onClick={() => {
+              setEditorMode("word");
+              setBlankEditor({ page: currentPage, index, id: part.id, value: part.value });
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
+                setEditorMode("word");
                 setBlankEditor({ page: currentPage, index, id: part.id, value: part.value });
               }
             }}
@@ -490,34 +495,75 @@ export default function App() {
         </button>
 
         {blankEditor && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="Fill blank word card">
-            <div className="blank-word-dialog-panel">
-              <img className="sentence-add-dialog-background" src={icon("sentence-add-dialog.svg")} alt="" />
-              <label htmlFor="blank-word-entry">Write a replacement word</label>
-              <input
-                id="blank-word-entry"
-                autoFocus
-                ref={dialogInput}
-                defaultValue={blankEditor.value}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    updateBlankWord(blankEditor.index, blankEditor.id, event.currentTarget.value);
-                    setBlankEditor(null);
-                  }
-                  if (event.key === "Escape") setBlankEditor(null);
-                }}
-              />
-              <div className="blank-word-dialog-actions">
-                <button type="button" onClick={() => setBlankEditor(null)}>Cancel</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    updateBlankWord(blankEditor.index, blankEditor.id, dialogInput.current?.value ?? "");
-                    setBlankEditor(null);
-                  }}
-                >Save</button>
-              </div>
-            </div>
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="Add content">
+            <section className="content-editor-sheet" onClick={(event) => event.stopPropagation()}>
+              <button className="content-sheet-close" type="button" aria-label="Close editor" onClick={() => setBlankEditor(null)}>×</button>
+              <nav className="content-editor-tabs" aria-label="Content type">
+                {[
+                  ["word", "Word"],
+                  ["photo", "Photo"],
+                  ["audio", "Audio"],
+                ].map(([mode, label]) => (
+                  <button
+                    className={editorMode === mode ? "is-selected" : ""}
+                    key={mode}
+                    type="button"
+                    onClick={() => setEditorMode(mode)}
+                  >{label}</button>
+                ))}
+              </nav>
+
+              {editorMode === "word" && (
+                <div className="content-editor-mode word-mode">
+                  <label className="word-entry" htmlFor="blank-word-entry">
+                    <input
+                      id="blank-word-entry"
+                      autoFocus
+                      ref={dialogInput}
+                      defaultValue={blankEditor.value}
+                      placeholder="Type a new word…"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          updateBlankWord(blankEditor.index, blankEditor.id, event.currentTarget.value);
+                          setBlankEditor(null);
+                        }
+                        if (event.key === "Escape") setBlankEditor(null);
+                      }}
+                    />
+                    <span>⌘ Tab</span>
+                  </label>
+                  <div className="word-categories">
+                    {['All', 'Nature', 'Time', 'Place', 'Mood'].map((category, categoryIndex) => (
+                      <button className={categoryIndex === 0 ? 'is-selected' : ''} key={category} type="button">{category}</button>
+                    ))}
+                  </div>
+                  <label className="word-search" htmlFor="word-search"><input id="word-search" placeholder="Search a word…" /></label>
+                  <div className="word-suggestions">
+                    {['October', 'autumn', 'dusk', 'frost', 'Tuesday'].map((word) => (
+                      <button key={word} type="button" onClick={() => {
+                        updateBlankWord(blankEditor.index, blankEditor.id, word);
+                        setBlankEditor(null);
+                      }}>{word}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {editorMode === "photo" && (
+                <div className="content-editor-mode photo-mode">
+                  <div className="content-actions"><button type="button">+ Take photo</button><button type="button">+ Choose photo</button></div>
+                  <p>Recent</p><div className="recent-photo-grid">{Array.from({ length: 6 }, (_, index) => <button key={index} type="button" aria-label={`Recent photo ${index + 1}`} />)}</div>
+                </div>
+              )}
+
+              {editorMode === "audio" && (
+                <div className="content-editor-mode audio-mode">
+                  <button className="record-button" type="button" aria-label="Hold to record">●</button><p>Hold to record</p>
+                  <span className="recent-label">Recent</span>
+                  {[12, 8, 10].map((duration, index) => <button className="audio-clip" key={index} type="button"><span>0:00</span><i /><span>0:{duration}</span><b>›</b></button>)}
+                </div>
+              )}
+            </section>
           </div>
         )}
       </section>
