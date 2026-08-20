@@ -347,8 +347,11 @@ html, body, #root {
 }
 
 .blank-word-card.is-filled {
+  box-sizing: border-box;
   border-radius: 10px;
-  box-shadow: inset 0 0 0 3px var(--blank-card-color);
+  border: 3px solid var(--blank-card-color);
+  background: var(--blank-card-color);
+  box-shadow: none;
 }
 
 .blank-word-dialog {
