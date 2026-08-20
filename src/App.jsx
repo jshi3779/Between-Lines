@@ -210,13 +210,19 @@ export default function App() {
     }
     const offset = textOffset(element, range.startContainer, range.startOffset);
     if (offset === null) return;
+    const parts = partsFromElement(index, element);
+    const sentenceEnd = parts.reduce((total, part) => total + part.value.length, 0);
+    if (offset !== sentenceEnd) {
+      button.hidden = true;
+      return;
+    }
     const caret = range.getBoundingClientRect();
     const editor = element.closest(".sentence-editor")?.getBoundingClientRect();
     if (!editor) return;
     button.hidden = false;
     button.style.left = `${Math.max(0, caret.left - editor.left + 3)}px`;
     button.style.top = `${Math.max(0, caret.top - editor.top - 5)}px`;
-    caretPositions.current[key] = { offset, parts: partsFromElement(index, element) };
+    caretPositions.current[key] = { offset, parts };
   };
 
   const appendBlankWordCard = (index) => {
