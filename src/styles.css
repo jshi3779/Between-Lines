@@ -279,6 +279,25 @@ html, body, #root {
   height: 40px;
 }
 
+.delete-sentence-card-button {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.delete-sentence-card-button img {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+
 .blank-word-card {
   position: relative;
   display: inline-block;

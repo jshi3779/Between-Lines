@@ -191,6 +191,19 @@ export default function App() {
     }));
   };
 
+  const deleteSentenceCard = (index) => {
+    const nextActiveIndex = Math.min(index, Math.max(0, (sentenceCards[currentPage] ?? []).length - 2));
+    setSentenceCards((cards) => ({
+      ...cards,
+      [currentPage]: (cards[currentPage] ?? []).filter((_, cardIndex) => cardIndex !== index),
+    }));
+    setActiveSentenceIndexes((indexes) => {
+      return { ...indexes, [currentPage]: nextActiveIndex };
+    });
+    setSelectedWord(null);
+    setBlankEditor(null);
+  };
+
   const renderSentence = (card, index) => {
     let offset = 0;
     return cardParts(card).map((part, partIndex) => {
@@ -324,6 +337,20 @@ export default function App() {
               >
                 {renderSentence(card, index)}
               </div>
+              {activeSentenceIndex === index && (
+                <button
+                  className="delete-sentence-card-button"
+                  type="button"
+                  aria-label={`Delete sentence card ${index + 1}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    deleteSentenceCard(index);
+                  }}
+                >
+                  <img src={icon("delete-word.svg")} alt="" />
+                </button>
+              )}
               {selectedWord?.page === currentPage && selectedWord.index === index && (
                 <button
                   className="delete-word-button"
