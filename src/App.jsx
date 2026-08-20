@@ -497,6 +497,7 @@ export default function App() {
         {blankEditor && (
           <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="Add content">
             <section className="content-editor-sheet" onClick={(event) => event.stopPropagation()}>
+              <img className="content-editor-sheet-background" src={icon("sentence-add-dialog.svg")} alt="" />
               <button className="content-sheet-close" type="button" aria-label="Close editor" onClick={() => setBlankEditor(null)}>×</button>
               <nav className="content-editor-tabs" aria-label="Content type">
                 {[
