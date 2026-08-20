@@ -346,6 +346,11 @@ html, body, #root {
   outline-offset: 2px;
 }
 
+.blank-word-card.is-filled {
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 3px var(--blank-card-color);
+}
+
 .blank-word-dialog {
   position: absolute;
   inset: 0;
@@ -447,12 +452,15 @@ html, body, #root {
   outline: none;
 }
 
-.word-entry span {
+.word-entry button {
   padding: 3px 5px;
+  border: 0;
   border-radius: 9px;
   background: #000;
   color: #fff;
+  font: inherit;
   font-size: 10px;
+  cursor: pointer;
 }
 
 .word-categories,

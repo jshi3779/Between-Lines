@@ -6,6 +6,7 @@ const STARTER_SENTENCES = [
   "Your handwriting still looks like rain.",
   "The light falls differently in October now.",
 ];
+const USER_ACCENT_COLORS = ["#f6be45", "#3465d6", "#1d9c6c", "#ec4e99"];
 const textPart = (value) => ({ type: "text", value });
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
 const blankCardWidth = (value) => Math.min(250, Math.max(88, 24 + value.length * 12));
@@ -187,7 +188,13 @@ export default function App() {
           ? {
               ...card,
               parts: cardParts(card).map((part) =>
-                part.type === "blank" && part.id === id ? { ...part, value } : part,
+                part.type === "blank" && part.id === id
+                  ? {
+                      ...part,
+                      value,
+                      color: value ? part.color ?? USER_ACCENT_COLORS[Math.floor(Math.random() * USER_ACCENT_COLORS.length)] : undefined,
+                    }
+                  : part,
               ),
             }
           : card,
@@ -284,11 +291,14 @@ export default function App() {
         offset += part.value.length;
         return (
           <span
-            className="blank-word-card"
+            className={`blank-word-card${part.value ? " is-filled" : ""}`}
             contentEditable={false}
             key={`blank-${part.id}`}
             data-blank-id={part.id}
-            style={{ "--blank-card-width": `${blankCardWidth(part.value)}px` }}
+            style={{
+              "--blank-card-width": `${blankCardWidth(part.value)}px`,
+              "--blank-card-color": part.color ?? "#79746d",
+            }}
             role="button"
             tabIndex={0}
             aria-label="Fill blank word card"
@@ -537,7 +547,14 @@ export default function App() {
                         if (event.key === "Escape") setBlankEditor(null);
                       }}
                     />
-                    <span>⌘ Tab</span>
+                    <button
+                      type="button"
+                      aria-label="Add word to blank card"
+                      onClick={() => {
+                        updateBlankWord(blankEditor.index, blankEditor.id, dialogInput.current?.value ?? "");
+                        setBlankEditor(null);
+                      }}
+                    >⌘ Tab</button>
                   </label>
                   <div className="word-categories">
                     {['All', 'Nature', 'Time', 'Place', 'Mood'].map((category, categoryIndex) => (
