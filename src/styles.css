@@ -368,8 +368,10 @@ html, body, #root {
   isolation: isolate;
   box-sizing: border-box;
   width: 100%;
-  min-height: 289px;
-  padding: 40px;
+  height: 289px;
+  min-height: 0;
+  padding: 20px 40px 40px;
+  overflow: hidden;
   border-radius: 24px 24px 0 0;
   background: transparent;
   color: #242222;
@@ -389,7 +391,7 @@ html, body, #root {
 
 .content-sheet-close {
   position: absolute;
-  top: 24px;
+  top: 20px;
   right: 40px;
   width: 20px;
   height: 20px;
@@ -407,7 +409,7 @@ html, body, #root {
   display: flex;
   gap: 50px;
   height: 23px;
-  margin-bottom: 28px;
+  margin-bottom: 14px;
 }
 
 .content-editor-tabs button {
@@ -433,6 +435,13 @@ html, body, #root {
 }
 
 .content-editor-mode { width: 100%; }
+
+.content-editor-scroll {
+  height: calc(100% - 37px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
 
 .word-entry {
   display: flex;

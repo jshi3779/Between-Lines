@@ -530,6 +530,7 @@ export default function App() {
                 ))}
               </nav>
 
+              <div className="content-editor-scroll">
               {editorMode === "word" && (
                 <div className="content-editor-mode word-mode">
                   <label className="word-entry" htmlFor="blank-word-entry">
@@ -587,6 +588,7 @@ export default function App() {
                   {[12, 8, 10].map((duration, index) => <button className="audio-clip" key={index} type="button"><span>0:00</span><i /><span>0:{duration}</span><b>›</b></button>)}
                 </div>
               )}
+              </div>
             </section>
           </div>
         )}
