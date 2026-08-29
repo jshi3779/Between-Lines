@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 
 const MAX_SENTENCE_CARDS = 5;
 const STARTER_SENTENCES = [
-  "The last train to Glasgow leaves without me tonight.",
-  "Your handwriting still looks like rain.",
-  "The light falls differently in October now.",
+  "今晚，去格拉斯哥的末班车没有等我。",
+  "你的字迹仍像一场雨。",
+  "十月的光线如今落得不一样了。",
 ];
 const USER_ACCENT_COLORS = ["#f6be45", "#3465d6", "#1d9c6c", "#ec4e99"];
 const textPart = (value) => ({ type: "text", value });
@@ -301,7 +301,7 @@ export default function App() {
             }}
             role="button"
             tabIndex={0}
-            aria-label="Fill blank word card"
+            aria-label="填写空白词卡"
             onClick={() => {
               setEditorMode("word");
               setBlankEditor({ page: currentPage, index, id: part.id, value: part.value });
@@ -331,17 +331,17 @@ export default function App() {
   const activeSentenceIndex = activeSentenceIndexes[currentPage];
 
   return (
-    <main className="prototype-stage" aria-label="App prototype preview">
+    <main className="prototype-stage" aria-label="应用原型预览">
       <section
         className="app-screen"
-        aria-label="375 by 812 pixel app screen"
+        aria-label="375 × 812 像素应用屏幕"
         style={{
           "--back-icon": `url("${icon("back.svg")}")`,
           "--blank-word-card-icon": `url("${icon("blank-word-card.svg")}")`,
         }}
       >
         <header className="top-navigation">
-          <button className="nav-button nav-back" type="button" aria-label="Back">
+          <button className="nav-button nav-back" type="button" aria-label="返回">
             <img src={icon("back.svg")} alt="" />
           </button>
 
@@ -350,39 +350,39 @@ export default function App() {
             contentEditable
             suppressContentEditableWarning
             spellCheck="false"
-            aria-label="Editable title"
+            aria-label="可编辑标题"
           >
-            Untitled
+            无标题
           </h1>
 
           <div className="nav-actions">
-            <button className="nav-button" type="button" aria-label="Invite">
+            <button className="nav-button" type="button" aria-label="邀请">
               <img src={icon("invite.svg")} alt="" />
             </button>
-            <button className="nav-button" type="button" aria-label="Settings">
+            <button className="nav-button" type="button" aria-label="设置">
               <img src={icon("settings.svg")} alt="" />
             </button>
           </div>
         </header>
 
-        <div className="user-labels" aria-label="Notebook collaborators">
+        <div className="user-labels" aria-label="笔记本协作者">
           {[1, 2, 3, 4].map((user) => (
-            <img key={user} src={icon(`user-label-${user}.svg`)} alt={`User ${user}`} />
+            <img key={user} src={icon(`user-label-${user}.svg`)} alt={`用户 ${user}`} />
           ))}
         </div>
 
         <main className={`notebook-page notebook-page-${currentPageSide}`}>
           <img
             src={icon(`${currentPageSide}-page.svg`)}
-            alt={`Page ${currentPage}, ${currentPageSide} page`}
+            alt={`第 ${currentPage} 页`}
           />
         </main>
 
-        <nav className="page-navigation" aria-label="Page navigation">
+        <nav className="page-navigation" aria-label="页面导航">
           <button
             className="page-arrow page-arrow-previous"
             type="button"
-            aria-label="Previous page"
+            aria-label="上一页"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
           />
@@ -390,17 +390,17 @@ export default function App() {
           <button
             className="page-arrow page-arrow-next"
             type="button"
-            aria-label="Next page"
+            aria-label="下一页"
             disabled={currentPage === pageCount}
             onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
           />
         </nav>
 
-        <section className="sentence-area" aria-label="Sentence area">
+        <section className="sentence-area" aria-label="句子区域">
           {currentSentenceCards.map((card, index) => (
             <div
               className={`edit-sentence-card${activeSentenceIndex === index ? " is-active" : ""}`}
-              aria-label={`Sentence card ${index + 1}`}
+              aria-label={`第 ${index + 1} 个句子卡`}
               key={index}
               onClick={(event) => {
                 setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
@@ -413,7 +413,7 @@ export default function App() {
               <img
                 className="sentence-avatar"
                 src={icon(`user-${card.avatar}.svg`)}
-                alt={`User ${card.avatar}`}
+                alt={`用户 ${card.avatar}`}
               />
               <div className="sentence-editor">
                 <div
@@ -421,7 +421,7 @@ export default function App() {
                   contentEditable
                   suppressContentEditableWarning
                   role="textbox"
-                  aria-label={`Edit sentence ${index + 1}`}
+                  aria-label={`编辑第 ${index + 1} 个句子`}
                   onFocus={() => {
                     setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: index }));
                     requestAnimationFrame(() => positionAddWordCardButton(index, document.activeElement));
@@ -440,7 +440,7 @@ export default function App() {
                   <button
                     className="add-word-card-button"
                     type="button"
-                    aria-label="Add blank word card"
+                    aria-label="添加空白词卡"
                     hidden
                     ref={(element) => {
                       if (element) addWordCardButtons.current[`${currentPage}-${index}`] = element;
@@ -459,7 +459,7 @@ export default function App() {
                 <button
                   className="delete-sentence-card-button"
                   type="button"
-                  aria-label={`Delete sentence card ${index + 1}`}
+                  aria-label={`删除第 ${index + 1} 个句子卡`}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -474,7 +474,7 @@ export default function App() {
                   className="delete-word-button"
                   type="button"
                   contentEditable={false}
-                  aria-label="Delete selected word"
+                  aria-label="删除选中的词"
                   style={{ left: selectedWord.left, top: selectedWord.top }}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={deleteSelectedWord}
@@ -487,25 +487,25 @@ export default function App() {
 
           {currentSentenceCards.length < MAX_SENTENCE_CARDS && (
             <button className="add-sentence-button" type="button" onClick={addSentence}>
-              <img src={icon("add-sentence.svg")} alt="Add sentence" />
+              <img src={icon("add-sentence.svg")} alt="添加句子" />
             </button>
           )}
 
           {!hasSentence && (
             <div className="sentence-empty-state">
-              <p>Start your first line</p>
-              <p>write your own · or draw a prompt from the deck</p>
+              <p>写下你的第一句话</p>
+              <p>自己写下 · 或从卡组中抽取提示</p>
             </div>
           )}
 
         </section>
 
-        <p className="sr-only" aria-live="polite">Page {currentPage} of {pageCount}</p>
+        <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
 
         <button
           className="add-page-button"
           type="button"
-          aria-label="Add page"
+          aria-label="添加页面"
           onClick={addPage}
           onPointerDown={() => setIsAddPressed(true)}
           onPointerLeave={() => !releaseTimer.current && setIsAddPressed(false)}
@@ -517,11 +517,11 @@ export default function App() {
         </button>
 
         {blankEditor && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="Add content">
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="添加内容">
             <section className="content-editor-sheet" onClick={(event) => event.stopPropagation()}>
               <img className="content-editor-sheet-background" src={icon("sentence-add-dialog.svg")} alt="" />
-              <button className="content-sheet-close" type="button" aria-label="Close editor" onClick={() => setBlankEditor(null)}>×</button>
-              <nav className="content-editor-tabs" aria-label="Content type">
+              <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => setBlankEditor(null)}>×</button>
+              <nav className="content-editor-tabs" aria-label="内容类型">
                 {["word", "photo", "audio"].map((mode) => (
                   <button
                     className={editorMode === mode ? "is-selected" : ""}
@@ -531,7 +531,7 @@ export default function App() {
                   >
                     <img
                       src={icon(`content-tab-${mode}-${editorMode === mode ? "selected" : "default"}.svg`)}
-                      alt={mode}
+                      alt={{ word: "词", photo: "图片", audio: "音频" }[mode]}
                     />
                   </button>
                 ))}
@@ -546,7 +546,7 @@ export default function App() {
                       autoFocus
                       ref={dialogInput}
                       defaultValue={blankEditor.value}
-                      placeholder="Type a new word…"
+                      placeholder="输入一个新词…"
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           updateBlankWord(blankEditor.index, blankEditor.id, event.currentTarget.value);
@@ -557,7 +557,7 @@ export default function App() {
                     />
                     <button
                       type="button"
-                      aria-label="Add word to blank card"
+                      aria-label="将词填入空白词卡"
                       onClick={() => {
                         updateBlankWord(blankEditor.index, blankEditor.id, dialogInput.current?.value ?? "");
                         setBlankEditor(null);
@@ -565,13 +565,13 @@ export default function App() {
                     >⌘ Tab</button>
                   </label>
                   <div className="word-categories">
-                    {['All', 'Nature', 'Time', 'Place', 'Mood'].map((category, categoryIndex) => (
+                    {['全部', '自然', '时间', '地点', '心情'].map((category, categoryIndex) => (
                       <button className={categoryIndex === 0 ? 'is-selected' : ''} key={category} type="button">{category}</button>
                     ))}
                   </div>
-                  <label className="word-search" htmlFor="word-search"><input id="word-search" placeholder="Search a word…" /></label>
+                  <label className="word-search" htmlFor="word-search"><input id="word-search" placeholder="搜索一个词…" aria-label="搜索词语" /></label>
                   <div className="word-suggestions">
-                    {['October', 'autumn', 'dusk', 'frost', 'Tuesday'].map((word) => (
+                    {['十月', '秋天', '黄昏', '霜冻', '星期二'].map((word) => (
                       <button key={word} type="button" onClick={() => {
                         updateBlankWord(blankEditor.index, blankEditor.id, word);
                         setBlankEditor(null);
@@ -583,15 +583,15 @@ export default function App() {
 
               {editorMode === "photo" && (
                 <div className="content-editor-mode photo-mode">
-                  <div className="content-actions"><button type="button">+ Take photo</button><button type="button">+ Choose photo</button></div>
-                  <p>Recent</p><div className="recent-photo-grid">{Array.from({ length: 6 }, (_, index) => <button key={index} type="button" aria-label={`Recent photo ${index + 1}`} />)}</div>
+                  <div className="content-actions"><button type="button">+ 拍照</button><button type="button">+ 选择图片</button></div>
+                  <p>最近使用</p><div className="recent-photo-grid">{Array.from({ length: 6 }, (_, index) => <button key={index} type="button" aria-label={`最近图片 ${index + 1}`} />)}</div>
                 </div>
               )}
 
               {editorMode === "audio" && (
                 <div className="content-editor-mode audio-mode">
-                  <button className="record-button" type="button" aria-label="Hold to record">●</button><p>Hold to record</p>
-                  <span className="recent-label">Recent</span>
+                  <button className="record-button" type="button" aria-label="按住录音">●</button><p>按住录音</p>
+                  <span className="recent-label">最近使用</span>
                   {[12, 8, 10].map((duration, index) => <button className="audio-clip" key={index} type="button"><span>0:00</span><i /><span>0:{duration}</span><b>›</b></button>)}
                 </div>
               )}
