@@ -602,7 +602,7 @@ export default function App() {
                         updateBlankWord(blankEditor.index, blankEditor.id, dialogInput.current?.value ?? "");
                         setBlankEditor(null);
                       }}
-                    >⌘ Tab</button>
+                    >Add</button>
                   </label>
                   <div className="word-categories">
                     {['全部', '自然', '时间', '地点', '心情'].map((category, categoryIndex) => (
