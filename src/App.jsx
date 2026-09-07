@@ -8,22 +8,62 @@ const STARTER_SENTENCES = [
 ];
 const USER_ACCENT_COLORS = ["#f6be45", "#3465d6", "#1d9c6c", "#ec4e99"];
 const textPart = (value) => ({ type: "text", value });
+const GUIDE_SENTENCE_CARDS = [
+  {
+    avatar: 3,
+    parts: [
+      textPart("今晚，开往 "),
+      { type: "blank", id: 1, value: "格拉斯哥", color: "#3465d6" },
+      textPart(" 的末班车没有我。"),
+    ],
+  },
+  { avatar: 2, parts: [textPart("如今，十月的光落下来，已经不一样了。")] },
+  {
+    avatar: 3,
+    parts: [
+      textPart("你的字迹还是像 "),
+      { type: "blank", id: 2, value: "雨", color: "#3465d6" },
+      textPart("。"),
+    ],
+  },
+  {
+    avatar: 2,
+    parts: [
+      textPart("我把这一句留给 "),
+      { type: "blank", id: 3, value: "你", color: "#1d9c6c" },
+      textPart(" 写完。"),
+    ],
+  },
+  {
+    avatar: 3,
+    parts: [
+      textPart("今天我路过 "),
+      { type: "blank", id: 4, value: "我们常去的咖啡馆", color: "#ec4e99" },
+      textPart("，也没特别想起 "),
+      { type: "blank", id: 5, value: "" },
+      textPart("。"),
+    ],
+  },
+];
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
-const blankCardWidth = (value) => Math.min(250, Math.max(88, 24 + value.length * 12));
+const blankCardWidth = (value) => {
+  const contentWidth = [...value].reduce((total, character) => total + (/[^\x00-\xff]/.test(character) ? 20 : 12), 0);
+  return Math.min(250, Math.max(88, 24 + contentWidth));
+};
 const icon = (file) => `${import.meta.env.BASE_URL}icons/${file}`;
 
 export default function App() {
   const [pageCount, setPageCount] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sentenceCards, setSentenceCards] = useState({});
-  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({});
+  const [sentenceCards, setSentenceCards] = useState({ 1: GUIDE_SENTENCE_CARDS });
+  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 2 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
   const [editorMode, setEditorMode] = useState("word");
-  const [hasSeedSentence, setHasSeedSentence] = useState(false);
+  const [hasSeedSentence, setHasSeedSentence] = useState(true);
   const [isAddPressed, setIsAddPressed] = useState(false);
   const releaseTimer = useRef(null);
-  const blankId = useRef(0);
+  const blankId = useRef(5);
   const dialogInput = useRef(null);
   const addWordCardButtons = useRef({});
   const caretPositions = useRef({});
