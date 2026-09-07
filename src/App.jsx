@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 
 const MAX_SENTENCE_CARDS = 5;
 const STARTER_SENTENCES = [
@@ -60,6 +61,8 @@ export default function App() {
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
   const [editorMode, setEditorMode] = useState("word");
+  const [selectedWordCategory, setSelectedWordCategory] = useState("全部");
+  const [wordSearch, setWordSearch] = useState("");
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
   const [isAddPressed, setIsAddPressed] = useState(false);
   const releaseTimer = useRef(null);
@@ -369,6 +372,10 @@ export default function App() {
   const currentSentenceCards = sentenceCards[currentPage] ?? [];
   const hasSentence = currentSentenceCards.length > 0;
   const activeSentenceIndex = activeSentenceIndexes[currentPage];
+  const visibleLibraryWords = WORD_LIBRARY.filter(({ word, category }) =>
+    (selectedWordCategory === "全部" || category === selectedWordCategory)
+    && word.includes(wordSearch.trim()),
+  );
 
   return (
     <main className="prototype-stage" aria-label="应用原型预览">
@@ -605,13 +612,18 @@ export default function App() {
                     >Add</button>
                   </label>
                   <div className="word-categories">
-                    {['全部', '自然', '时间', '地点', '心情'].map((category, categoryIndex) => (
-                      <button className={categoryIndex === 0 ? 'is-selected' : ''} key={category} type="button">{category}</button>
+                    {WORD_CATEGORIES.map((category) => (
+                      <button
+                        className={selectedWordCategory === category ? "is-selected" : ""}
+                        key={category}
+                        type="button"
+                        onClick={() => setSelectedWordCategory(category)}
+                      >{category}</button>
                     ))}
                   </div>
-                  <label className="word-search" htmlFor="word-search"><input id="word-search" placeholder="搜索一个词…" aria-label="搜索词语" /></label>
+                  <label className="word-search" htmlFor="word-search"><input id="word-search" placeholder="搜索一个词…" aria-label="搜索词语" value={wordSearch} onChange={(event) => setWordSearch(event.target.value)} /></label>
                   <div className="word-suggestions">
-                    {['十月', '秋天', '黄昏', '霜冻', '星期二'].map((word) => (
+                    {visibleLibraryWords.map(({ word }) => (
                       <button key={word} type="button" onClick={() => {
                         updateBlankWord(blankEditor.index, blankEditor.id, word);
                         setBlankEditor(null);
