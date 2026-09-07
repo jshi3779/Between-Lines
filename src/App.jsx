@@ -65,6 +65,7 @@ export default function App() {
   const [wordSearch, setWordSearch] = useState("");
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
   const [isAddPressed, setIsAddPressed] = useState(false);
+  const [isPageOverviewOpen, setIsPageOverviewOpen] = useState(false);
   const releaseTimer = useRef(null);
   const blankId = useRef(5);
   const dialogInput = useRef(null);
@@ -391,6 +392,14 @@ export default function App() {
           <button className="nav-button nav-back" type="button" aria-label="返回">
             <img src={icon("back.svg")} alt="" />
           </button>
+          <button
+            className="nav-button nav-page-overview"
+            type="button"
+            aria-label="查看所有页面"
+            onClick={() => setIsPageOverviewOpen(true)}
+          >
+            <img src={icon("view-all-pages.svg")} alt="" />
+          </button>
 
           <h1
             className="editable-title"
@@ -411,6 +420,39 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {isPageOverviewOpen && (
+          <section className="page-overview" aria-label="全部页面总览">
+            <div className="page-overview-header">
+              <h2>所有页面</h2>
+              <button type="button" aria-label="关闭页面总览" onClick={() => setIsPageOverviewOpen(false)}>×</button>
+            </div>
+            <p>共 {pageCount} 页 · 点击页面即可打开</p>
+            <div className="page-overview-grid">
+              {Array.from({ length: pageCount }, (_, index) => {
+                const page = index + 1;
+                const side = page % 2 === 1 ? "left" : "right";
+                const sentenceCount = (sentenceCards[page] ?? []).length;
+                return (
+                  <button
+                    className={`page-overview-card${page === currentPage ? " is-current" : ""}`}
+                    key={page}
+                    type="button"
+                    aria-label={`打开第 ${page} 页`}
+                    onClick={() => {
+                      setCurrentPage(page);
+                      setIsPageOverviewOpen(false);
+                    }}
+                  >
+                    <img src={icon(`${side}-page.svg`)} alt="" />
+                    <span>第 {page} 页</span>
+                    <small>{sentenceCount} 个句子</small>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <div className="user-labels" aria-label="笔记本协作者">
           {[1, 2, 3, 4].map((user) => (

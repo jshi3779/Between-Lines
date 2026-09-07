@@ -65,10 +65,16 @@ html, body, #root {
   top: 0;
 }
 
+.nav-page-overview {
+  position: absolute;
+  top: 0;
+  left: 60px;
+}
+
 .editable-title {
   position: absolute;
   top: 50%;
-  left: 60px;
+  left: 100px;
   right: 110px;
   margin: 0;
   overflow: hidden;
@@ -94,6 +100,101 @@ html, body, #root {
   right: 20px;
   display: flex;
   gap: 10px;
+}
+
+.page-overview {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow-y: auto;
+  padding: 46px 20px 32px;
+  background: #ececea;
+  color: #242222;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+}
+
+.page-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-overview-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.page-overview-header button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #242222;
+  font: inherit;
+  font-size: 28px;
+  line-height: 24px;
+  cursor: pointer;
+}
+
+.page-overview > p {
+  margin: 8px 0 22px;
+  color: #79746d;
+  font-size: 14px;
+}
+
+.page-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.page-overview-card {
+  position: relative;
+  min-height: 210px;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: #fdfdfb;
+  color: #242222;
+  box-shadow: 0 5px 12px rgb(57 52 47 / 12%);
+  cursor: pointer;
+}
+
+.page-overview-card.is-current {
+  border-color: #3465d6;
+}
+
+.page-overview-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.page-overview-card span,
+.page-overview-card small {
+  position: absolute;
+  left: 12px;
+  z-index: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgb(253 253 251 / 88%);
+}
+
+.page-overview-card span {
+  bottom: 30px;
+  font-size: 16px;
+}
+
+.page-overview-card small {
+  bottom: 10px;
+  color: #79746d;
+  font-size: 11px;
 }
 
 .user-labels {
