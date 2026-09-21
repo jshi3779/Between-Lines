@@ -19,32 +19,6 @@ const GUIDE_SENTENCE_CARDS = [
     ],
   },
   { avatar: 2, parts: [textPart("如今，十月的光落下来，已经不一样了。")] },
-  {
-    avatar: 3,
-    parts: [
-      textPart("你的字迹还是像 "),
-      { type: "blank", id: 2, value: "雨", color: "#3465d6" },
-      textPart("。"),
-    ],
-  },
-  {
-    avatar: 2,
-    parts: [
-      textPart("我把这一句留给 "),
-      { type: "blank", id: 3, value: "你", color: "#1d9c6c" },
-      textPart(" 写完。"),
-    ],
-  },
-  {
-    avatar: 3,
-    parts: [
-      textPart("今天我路过 "),
-      { type: "blank", id: 4, value: "我们常去的咖啡馆", color: "#ec4e99" },
-      textPart("，也没特别想起 "),
-      { type: "blank", id: 5, value: "" },
-      textPart("。"),
-    ],
-  },
 ];
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
 const blankCardWidth = (value) => {
@@ -57,7 +31,7 @@ export default function App() {
   const [pageCount, setPageCount] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [sentenceCards, setSentenceCards] = useState({ 1: GUIDE_SENTENCE_CARDS });
-  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 2 });
+  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
   const [editorMode, setEditorMode] = useState("word");
@@ -66,14 +40,48 @@ export default function App() {
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
   const [isAddPressed, setIsAddPressed] = useState(false);
   const [isPageOverviewOpen, setIsPageOverviewOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareNotice, setShareNotice] = useState("");
+  const [recentPhotos, setRecentPhotos] = useState([]);
   const releaseTimer = useRef(null);
   const blankId = useRef(5);
   const dialogInput = useRef(null);
   const addWordCardButtons = useRef({});
   const caretPositions = useRef({});
+  const cameraInput = useRef(null);
+  const photoInput = useRef(null);
+  const photoUrls = useRef(new Set());
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
 
-  useEffect(() => () => clearTimeout(releaseTimer.current), []);
+  useEffect(() => () => {
+    clearTimeout(releaseTimer.current);
+    photoUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  const addRecentPhotos = (files) => {
+    const images = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
+    if (!images.length) return;
+    const nextPhotos = images.map((file) => {
+      const url = URL.createObjectURL(file);
+      photoUrls.current.add(url);
+      return { id: `${file.name}-${file.lastModified}-${url}`, url, name: file.name || "已选图片" };
+    });
+    setRecentPhotos((photos) => [...nextPhotos, ...photos].slice(0, 12));
+  };
+
+  const shareTo = async (channel) => {
+    if (channel === "系统分享" && navigator.share) {
+      try {
+        await navigator.share({ title: "无标题", text: "邀请你一起在 Between Lines 里共写一句话。" });
+        setShareNotice("已打开系统分享");
+      } catch {
+        return;
+      }
+    } else {
+      setShareNotice(`已准备分享到${channel}`);
+    }
+    window.setTimeout(() => setShareNotice(""), 1800);
+  };
 
   const addPage = () => {
     setIsAddPressed(true);
@@ -305,6 +313,9 @@ export default function App() {
       ];
     });
     if (!inserted) parts.push({ type: "blank", id, value: "" });
+    const button = addWordCardButtons.current[key];
+    if (button) button.hidden = true;
+    delete caretPositions.current[key];
     setSentenceCards((cards) => ({
       ...cards,
       [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
@@ -400,7 +411,6 @@ export default function App() {
           >
             <img src={icon("view-all-pages.svg")} alt="" />
           </button>
-
           <h1
             className="editable-title"
             contentEditable
@@ -412,7 +422,7 @@ export default function App() {
           </h1>
 
           <div className="nav-actions">
-            <button className="nav-button" type="button" aria-label="邀请">
+            <button className="nav-button" type="button" aria-label="分享笔记本" onClick={() => setIsShareOpen(true)}>
               <img src={icon("invite.svg")} alt="" />
             </button>
             <button className="nav-button" type="button" aria-label="设置">
@@ -453,6 +463,34 @@ export default function App() {
             </div>
           </section>
         )}
+
+        {isShareOpen && (
+          <div className="share-dialog" role="dialog" aria-modal="true" aria-label="分享笔记本" onClick={() => setIsShareOpen(false)}>
+            <section className="share-sheet" onClick={(event) => event.stopPropagation()}>
+              <div className="share-sheet-handle" />
+              <h2>分享笔记本</h2>
+              <p>邀请朋友一起把句子写完</p>
+              <div className="share-channel-grid">
+                {[
+                  ["微信", "wechat"],
+                  ["朋友圈", "moments"],
+                  ["小红书", "redbook"],
+                  ["抖音", "douyin"],
+                  ["复制链接", "link"],
+                  ["系统分享", "system"],
+                ].map(([label, tone]) => (
+                  <button key={label} type="button" className={`share-channel ${tone}`} onClick={() => shareTo(label)}>
+                    <span>{tone === "link" ? "↗" : tone === "system" ? "···" : label.slice(0, 1)}</span>
+                    <small>{label}</small>
+                  </button>
+                ))}
+              </div>
+              <button className="share-cancel" type="button" onClick={() => setIsShareOpen(false)}>取消</button>
+            </section>
+          </div>
+        )}
+
+        {shareNotice && <div className="share-notice" role="status">{shareNotice}</div>}
 
         <div className="user-labels" aria-label="笔记本协作者">
           {[1, 2, 3, 4].map((user) => (
@@ -677,8 +715,45 @@ export default function App() {
 
               {editorMode === "photo" && (
                 <div className="content-editor-mode photo-mode">
-                  <div className="content-actions"><button type="button">+ 拍照</button><button type="button">+ 选择图片</button></div>
-                  <p>最近使用</p><div className="recent-photo-grid">{Array.from({ length: 6 }, (_, index) => <button key={index} type="button" aria-label={`最近图片 ${index + 1}`} />)}</div>
+                  <div className="content-actions">
+                    <button type="button" onClick={() => cameraInput.current?.click()}>+ 拍照</button>
+                    <button type="button" onClick={() => photoInput.current?.click()}>+ 选择图片</button>
+                  </div>
+                  <input
+                    ref={cameraInput}
+                    className="visually-hidden"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    aria-label="使用相机拍照"
+                    onChange={(event) => {
+                      addRecentPhotos(event.currentTarget.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <input
+                    ref={photoInput}
+                    className="visually-hidden"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    aria-label="从设备选择图片"
+                    onChange={(event) => {
+                      addRecentPhotos(event.currentTarget.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <p>最近使用</p>
+                  <div className="recent-photo-grid">
+                    {recentPhotos.map((photo) => (
+                      <button key={photo.id} type="button" className="uploaded-photo" aria-label={`已上传图片：${photo.name}`}>
+                        <img src={photo.url} alt="" />
+                      </button>
+                    ))}
+                    {Array.from({ length: Math.max(0, 6 - recentPhotos.length) }, (_, index) => (
+                      <button key={`placeholder-${index}`} type="button" aria-label={`最近图片占位 ${index + 1}`} />
+                    ))}
+                  </div>
                 </div>
               )}
 

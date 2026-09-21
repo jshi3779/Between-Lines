@@ -197,6 +197,110 @@ html, body, #root {
   font-size: 11px;
 }
 
+.share-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(36 34 34 / 30%);
+}
+
+.share-sheet {
+  width: 100%;
+  padding: 10px 20px 24px;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  color: #242222;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+}
+
+.share-sheet-handle {
+  width: 34px;
+  height: 4px;
+  margin: 0 auto 14px;
+  border-radius: 99px;
+  background: #d7d4cf;
+}
+
+.share-sheet h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.share-sheet > p {
+  margin: 5px 0 20px;
+  color: #79746d;
+  font-size: 13px;
+  text-align: center;
+}
+
+.share-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 10px;
+}
+
+.share-channel {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #242222;
+  font: inherit;
+  cursor: pointer;
+}
+
+.share-channel span {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.share-channel small { font: inherit; font-size: 12px; }
+.share-channel.wechat span { background: #1aad19; }
+.share-channel.moments span { background: #78bf63; }
+.share-channel.redbook span { background: #ff2442; }
+.share-channel.douyin span { background: #121212; box-shadow: 2px 2px 0 #25f4ee; }
+.share-channel.link span { background: #3465d6; }
+.share-channel.system span { background: #79746d; }
+
+.share-cancel {
+  width: 100%;
+  height: 42px;
+  margin-top: 22px;
+  border: 0;
+  border-radius: 12px;
+  background: #ececea;
+  color: #242222;
+  font: inherit;
+  cursor: pointer;
+}
+
+.share-notice {
+  position: absolute;
+  z-index: 50;
+  left: 50%;
+  bottom: 36px;
+  padding: 9px 14px;
+  border-radius: 99px;
+  background: rgb(36 34 34 / 88%);
+  color: #fff;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+
 .user-labels {
   position: absolute;
   top: 95px;
@@ -645,6 +749,20 @@ html, body, #root {
 .recent-photo-grid button { aspect-ratio: 1; border: 0; border-radius: 8px; background: linear-gradient(135deg, #d7d1ca, #88979c, #d9ae9d); cursor: pointer; }
 .recent-photo-grid button:nth-child(2n) { background: linear-gradient(135deg, #bc9a7a, #d6d7cf, #637b70); }
 .recent-photo-grid button:nth-child(3n) { background: linear-gradient(135deg, #484d58, #c1b6a7, #e2d4be); }
+.recent-photo-grid .uploaded-photo { overflow: hidden; padding: 0; background: #ececea; }
+.uploaded-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .audio-mode { text-align: center; }
 .record-button { display: block; width: 50px; height: 50px; margin: 8px auto 5px; border: 0; border-radius: 50%; background: #32343a; color: #fdfdfb; font-size: 20px; cursor: pointer; }
