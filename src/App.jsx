@@ -17,6 +17,15 @@ const GUIDE_SENTENCE_CARDS = [
   { avatar: 2, parts: [textPart("如今，十月的光落下来，已经不一样了。")] },
 ];
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
+const sentenceCardLineCount = (card) => {
+  const units = cardParts(card).reduce((total, part) => {
+    if (part.type === "text") return total + Array.from(part.value ?? "").length;
+    if (part.photo) return total + 30;
+    if (part.audio) return total + 15;
+    return total + Math.max(4, Array.from(part.value ?? "").length);
+  }, 0);
+  return Math.max(1, Math.ceil(units / 13));
+};
 const WORD_CARD_WIDTHS = [44, 65, 81, 101, 125, 143];
 const AUDIO_WAVEFORM = [4, 8, 12, 7, 15, 10, 6, 13, 17, 9, 5, 12, 8, 16, 11, 6, 14, 9, 17, 10, 5, 13, 8, 15];
 const extractAudioWaveform = async (blob, barCount = AUDIO_WAVEFORM.length) => {
@@ -56,6 +65,8 @@ const SAMPLE_PHOTOS = [{
   name: "格拉斯哥艺术学院",
   url: icon("default-photo.png"),
 }];
+const MANAGE_THUMBNAILS = Array.from({ length: 12 }, (_, index) => icon(`manage-thumb-${String(index + 1).padStart(2, "0")}.png`));
+const MANAGE_LIBRARY_PHOTOS = MANAGE_THUMBNAILS.map((url, index) => ({ id: `library-photo-${index + 1}`, name: `素材 ${index + 1}`, url }));
 
 export default function App() {
   const [pageCount, setPageCount] = useState(1);
@@ -66,6 +77,7 @@ export default function App() {
   const [blankEditor, setBlankEditor] = useState(null);
   const [editorPosition, setEditorPosition] = useState({ left: 30, top: 200, pointerLeft: 130, placement: "below" });
   const editorSheetRef = useRef(null);
+  const sentenceAreaRef = useRef(null);
   useLayoutEffect(() => {
     if (!blankEditor) return;
     const anchor = document.querySelector(`[data-blank-id="${blankEditor.id}"]`);
@@ -109,6 +121,17 @@ export default function App() {
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
   const [isAddPressed, setIsAddPressed] = useState(false);
   const [isPageOverviewOpen, setIsPageOverviewOpen] = useState(false);
+  const [isManageOpen, setIsManageOpen] = useState(false);
+  const [manageSection, setManageSection] = useState("images");
+  const [libraryMode, setLibraryMode] = useState("words");
+  const [libraryCategory, setLibraryCategory] = useState("全部");
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryWords, setLibraryWords] = useState(["十月", "秋天", "黄昏", "霜", "星期二"]);
+  const [newLibraryWord, setNewLibraryWord] = useState("");
+  const [pageTone, setPageTone] = useState("#fbfaf6");
+  const [cardTone, setCardTone] = useState("#ffffff");
+  const [inkTone, setInkTone] = useState("#242222");
+  const [pagePattern, setPagePattern] = useState("plain");
   const [selectedSpreads, setSelectedSpreads] = useState([]);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
@@ -116,14 +139,18 @@ export default function App() {
   const [audioClips, setAudioClips] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingNotice, setRecordingNotice] = useState("");
+  const [canAddSentence, setCanAddSentence] = useState(true);
   const releaseTimer = useRef(null);
   const blankId = useRef(5);
   const dialogInput = useRef(null);
   const skipSentenceBlur = useRef(new Set());
   const cameraInput = useRef(null);
   const photoInput = useRef(null);
+  const managePhotoInput = useRef(null);
   const draggedBlank = useRef(null);
   const suppressBlankClick = useRef(false);
+  const draggedSentence = useRef(null);
+  const suppressSentenceClick = useRef(false);
   const photoUrls = useRef(new Set());
   const audioRecorder = useRef(null);
   const audioUrls = useRef(new Set());
@@ -253,7 +280,7 @@ export default function App() {
   };
 
   const addSentence = () => {
-    if (currentSentenceCards.length >= MAX_SENTENCE_CARDS) return;
+    if (currentSentenceCards.length >= MAX_SENTENCE_CARDS || !canAddSentence) return;
 
     const avatar = Math.floor(Math.random() * 4) + 1;
     const nextIndex = currentSentenceCards.length;
@@ -571,6 +598,22 @@ export default function App() {
     setBlankEditor(null);
   };
 
+  const swapSentenceCards = (sourceIndex, targetIndex) => {
+    if (sourceIndex === targetIndex) return;
+    setSentenceCards((cards) => {
+      const pageCards = [...(cards[currentPage] ?? [])];
+      [pageCards[sourceIndex], pageCards[targetIndex]] = [pageCards[targetIndex], pageCards[sourceIndex]];
+      return { ...cards, [currentPage]: pageCards };
+    });
+    setActiveSentenceIndexes((indexes) => {
+      const active = indexes[currentPage];
+      const nextActive = active === sourceIndex ? targetIndex : active === targetIndex ? sourceIndex : active;
+      return { ...indexes, [currentPage]: nextActive };
+    });
+    setSelectedWord(null);
+    setBlankEditor(null);
+  };
+
   const deleteSentenceCard = (index) => {
     const nextActiveIndex = Math.min(index, Math.max(0, (sentenceCards[currentPage] ?? []).length - 2));
     setSentenceCards((cards) => ({
@@ -611,6 +654,7 @@ export default function App() {
               setBlankEditor({ page: currentPage, index, id: part.id, value: part.value });
             }}
             onDragStart={(event) => {
+              event.stopPropagation();
               draggedBlank.current = { index, id: part.id };
               suppressBlankClick.current = true;
               event.currentTarget.classList.add("is-dragging");
@@ -618,14 +662,19 @@ export default function App() {
               event.dataTransfer.setData("text/plain", `${index}:${part.id}`);
             }}
             onDragOver={(event) => {
+              event.stopPropagation();
               const source = draggedBlank.current;
               if (!source || (source.index === index && source.id === part.id)) return;
               event.preventDefault();
               event.dataTransfer.dropEffect = "move";
               event.currentTarget.classList.add("is-drag-over");
             }}
-            onDragLeave={(event) => event.currentTarget.classList.remove("is-drag-over")}
+            onDragLeave={(event) => {
+              event.stopPropagation();
+              event.currentTarget.classList.remove("is-drag-over");
+            }}
             onDrop={(event) => {
+              event.stopPropagation();
               event.preventDefault();
               event.currentTarget.classList.remove("is-drag-over");
               const source = draggedBlank.current;
@@ -634,6 +683,7 @@ export default function App() {
               window.setTimeout(() => { suppressBlankClick.current = false; }, 0);
             }}
             onDragEnd={(event) => {
+              event.stopPropagation();
               event.currentTarget.classList.remove("is-dragging");
               document.querySelectorAll(".blank-word-card.is-drag-over").forEach((cardElement) => cardElement.classList.remove("is-drag-over"));
               draggedBlank.current = null;
@@ -683,6 +733,31 @@ export default function App() {
     (selectedWordCategory === "全部" || category === selectedWordCategory)
     && word.includes(wordSearch.trim()),
   );
+  const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS];
+  const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
+    .filter((word) => word.includes(librarySearch.trim()));
+  const managedSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
+
+  useLayoutEffect(() => {
+    const area = sentenceAreaRef.current;
+    if (!area) return;
+    const measure = () => {
+      const cards = Array.from(area.querySelectorAll(":scope > .edit-sentence-card"));
+      const usedHeight = cards.reduce((total, card) => {
+        const style = window.getComputedStyle(card);
+        return total + card.offsetHeight + Number.parseFloat(style.marginBottom || 0);
+      }, 0);
+      const nextCardHeight = 110;
+      const addButtonHeight = 60;
+      const availableHeight = 545;
+      setCanAddSentence(cards.length < MAX_SENTENCE_CARDS && usedHeight + nextCardHeight + addButtonHeight <= availableHeight);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(area);
+    area.querySelectorAll(":scope > .edit-sentence-card").forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, [currentPage, currentSentenceCards]);
 
   return (
     <main className="prototype-stage" aria-label="应用原型预览">
@@ -692,6 +767,9 @@ export default function App() {
         style={{
           "--back-icon": `url("${icon("back.svg")}")`,
           "--blank-word-card-icon": `url("${icon("blank-word-card.svg")}")`,
+          "--page-tone": pageTone,
+          "--card-tone": cardTone,
+          "--ink-tone": inkTone,
         }}
       >
         <header className="top-navigation">
@@ -720,7 +798,7 @@ export default function App() {
             <button className="nav-button" type="button" aria-label="分享笔记本" onClick={() => setIsShareOpen(true)}>
               <img src={icon("invite.svg")} alt="" />
             </button>
-            <button className="nav-button" type="button" aria-label="设置">
+            <button className="nav-button" type="button" aria-label="设置" onClick={() => setIsManageOpen(true)}>
               <img src={icon("settings.svg")} alt="" />
             </button>
           </div>
@@ -811,9 +889,10 @@ export default function App() {
           ))}
         </div>
 
-        <main className={`notebook-page notebook-page-${currentPageSide}`}>
+        <main className={`notebook-page notebook-page-${currentPageSide} page-pattern-${pagePattern}`}>
           <img
-            src={icon(`${currentPageSide}-page.svg`)}
+            className="notebook-spread-image"
+            src={icon("notebook-spread.png")}
             alt={`第 ${currentPage} 页`}
           />
         </main>
@@ -836,17 +915,52 @@ export default function App() {
           />
         </nav>
 
-        <section className="sentence-area" aria-label="句子区域">
-          {currentSentenceCards.map((card, index) => (
+        <section ref={sentenceAreaRef} className="sentence-area" aria-label="句子区域">
+          {currentSentenceCards.map((card, index) => {
+            const visualLines = sentenceCardLineCount(card);
+            const assetLines = Math.min(3, visualLines);
+            return (
             <div
-              className={`edit-sentence-card${activeSentenceIndex === index ? " is-active" : ""}`}
+              className={`edit-sentence-card sentence-lines-${assetLines}${activeSentenceIndex === index ? " is-active" : ""}`}
+              style={{ "--sentence-card-height": `${70 + (visualLines - 1) * 30}px` }}
               aria-label={`第 ${index + 1} 个句子卡`}
               key={index}
+              draggable
               onClick={(event) => {
+                if (suppressSentenceClick.current) return;
                 setActiveSentenceIndexes((indexes) => indexes[currentPage] === index ? indexes : { ...indexes, [currentPage]: index });
                 if (!event.target.closest(".blank-word-card, .delete-word-button")) {
                   event.currentTarget.querySelector(".sentence-text")?.focus();
                 }
+              }}
+              onDragStart={(event) => {
+                if (event.target.closest?.(".blank-word-card")) return;
+                draggedSentence.current = index;
+                suppressSentenceClick.current = true;
+                event.currentTarget.classList.add("is-dragging");
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", `sentence:${index}`);
+              }}
+              onDragOver={(event) => {
+                if (draggedSentence.current === null || draggedSentence.current === index) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                event.currentTarget.classList.add("is-drag-over");
+              }}
+              onDragLeave={(event) => event.currentTarget.classList.remove("is-drag-over")}
+              onDrop={(event) => {
+                if (draggedSentence.current === null) return;
+                event.preventDefault();
+                event.currentTarget.classList.remove("is-drag-over");
+                swapSentenceCards(draggedSentence.current, index);
+                draggedSentence.current = null;
+                window.setTimeout(() => { suppressSentenceClick.current = false; }, 0);
+              }}
+              onDragEnd={(event) => {
+                event.currentTarget.classList.remove("is-dragging");
+                document.querySelectorAll(".edit-sentence-card.is-drag-over").forEach((cardElement) => cardElement.classList.remove("is-drag-over"));
+                draggedSentence.current = null;
+                window.setTimeout(() => { suppressSentenceClick.current = false; }, 0);
               }}
             >
               <img className="edit-sentence-background" src={icon("edit-sentence.svg")} alt="" />
@@ -930,9 +1044,9 @@ export default function App() {
                 </button>
               )}
             </div>
-          ))}
+          )})}
 
-          {currentSentenceCards.length < MAX_SENTENCE_CARDS && (
+          {canAddSentence && (
             <button className="add-sentence-button" type="button" onClick={addSentence}>
               <img src={icon("add-sentence.svg")} alt="添加句子" />
             </button>
@@ -1081,7 +1195,7 @@ export default function App() {
                   />
                   <p>最近使用</p>
                   <div className="recent-photo-grid">
-                    {[...recentPhotos, ...SAMPLE_PHOTOS].map((photo) => (
+                    {[...recentPhotos, ...SAMPLE_PHOTOS, ...MANAGE_LIBRARY_PHOTOS].map((photo) => (
                       <button key={photo.id} type="button" className={`uploaded-photo${photo.id === "default-photo" ? " is-pre-rotated" : ""}`} aria-label={`选择图片：${photo.name}`} onClick={() => insertPhotoCard(photo)}>
                         <img src={photo.url} alt="" />
                       </button>
@@ -1121,6 +1235,118 @@ export default function App() {
               </div>
             </section>
           </div>
+        )}
+
+        {isManageOpen && (
+          <section className={`manage-screen manage-screen-${manageSection}`} aria-label="管理页面">
+            <div className="manage-paper" aria-hidden="true" style={{ "--manage-page-mask": `url("${icon(manageSection === "cards" ? "library-page-mask.svg" : "manage-page-mask.svg")}")` }} />
+            {manageSection !== "cards" && <>
+              <img className="manage-line manage-line-top" src={icon("manage-line-top.svg")} alt="" />
+              <img className="manage-line manage-line-bottom" src={icon("manage-line-bottom.svg")} alt="" />
+            </>}
+            <button className="manage-back" type="button" aria-label="返回笔记本" onClick={() => setIsManageOpen(false)}>
+              <img src={icon(manageSection === "cards" ? "library-back.svg" : "manage-back.svg")} alt="" />
+            </button>
+            <h2>{manageSection === "images" ? "图片管理" : manageSection === "audio" ? "音频管理" : manageSection === "settings" ? "内页与颜色" : "管理"}</h2>
+            {manageSection === "images" ? <>
+              <div className="manage-grid" aria-label="图片素材">
+                {managedPhotos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.name} />)}
+                <button className="manage-add" type="button" aria-label="添加图片" onClick={() => managePhotoInput.current?.click()}>+</button>
+              </div>
+              <input
+                ref={managePhotoInput}
+                className="visually-hidden"
+                type="file"
+                accept="image/*"
+                multiple
+                aria-label="向图片资料库添加图片"
+                onChange={(event) => {
+                  addRecentPhotos(event.currentTarget.files);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </> : manageSection === "audio" ? <div className="manage-audio-library">
+              <div className="manage-audio-list">
+                {audioClips.length ? audioClips.map((clip) => (
+                  <article className="manage-audio-item" key={clip.id}>
+                    <span>0:00</span>
+                    <i className="audio-waveform" aria-hidden="true">{(clip.waveform ?? AUDIO_WAVEFORM).map((height, barIndex) => <em key={barIndex} style={{ height }} />)}</i>
+                    <span>{formatDuration(clip.duration)}</span>
+                    <button type="button" aria-label={`播放录音，时长 ${formatDuration(clip.duration)}`} onClick={(event) => playAudio(event, clip.url)}>
+                      <img src={icon("audio-play.svg")} alt="" draggable={false} />
+                    </button>
+                  </article>
+                )) : <div className="manage-audio-empty">还没有录音<br /><small>在笔记本的 AUDIO 板块录音后会显示在这里</small></div>}
+              </div>
+            </div> : manageSection === "settings" ? <div className="appearance-library">
+              <section>
+                <h3>内页样式</h3>
+                <div className="appearance-patterns">
+                  {[['plain', '空白'], ['lined', '横线'], ['grid', '方格'], ['dots', '点阵']].map(([value, label]) => (
+                    <button className={pagePattern === value ? "is-selected" : ""} key={value} type="button" onClick={() => setPagePattern(value)}>
+                      <span className={`pattern-preview pattern-${value}`} />{label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <h3>纸张颜色</h3>
+                <div className="appearance-colors">
+                  {["#fbfaf6", "#f5f0df", "#eef3ed", "#edf2f7", "#f6ecee", "#e9e7df"].map((color) => <button className={pageTone === color ? "is-selected" : ""} key={color} type="button" aria-label={`纸张颜色 ${color}`} style={{ background: color }} onClick={() => setPageTone(color)} />)}
+                </div>
+              </section>
+              <section>
+                <h3>句卡颜色</h3>
+                <div className="appearance-colors">
+                  {["#ffffff", "#f5eedc", "#e6f1eb", "#e9eef9", "#f7e6ec", "#e8e5df"].map((color) => <button className={cardTone === color ? "is-selected" : ""} key={color} type="button" aria-label={`句卡颜色 ${color}`} style={{ background: color }} onClick={() => setCardTone(color)} />)}
+                </div>
+              </section>
+              <section>
+                <h3>文字颜色</h3>
+                <div className="appearance-colors appearance-ink-colors">
+                  {["#242222", "#365f4b", "#315fa8", "#8a4a61", "#725a35", "#666666"].map((color) => <button className={inkTone === color ? "is-selected" : ""} key={color} type="button" aria-label={`文字颜色 ${color}`} style={{ background: color }} onClick={() => setInkTone(color)} />)}
+                </div>
+              </section>
+              <button className="appearance-reset" type="button" onClick={() => { setPageTone("#fbfaf6"); setCardTone("#ffffff"); setInkTone("#242222"); setPagePattern("plain"); }}>恢复默认</button>
+            </div> : <div className="library-content">
+              <nav className="library-kind-tabs" aria-label="资料库类型">
+                <button className={libraryMode === "words" ? "is-selected" : ""} type="button" onClick={() => setLibraryMode("words")}>词语</button>
+                <button className={libraryMode === "sentences" ? "is-selected" : ""} type="button" onClick={() => setLibraryMode("sentences")}>句子</button>
+              </nav>
+              {libraryMode === "words" ? <>
+                <form className="library-add-word" onSubmit={(event) => {
+                  event.preventDefault();
+                  const word = limitWordCardValue(newLibraryWord);
+                  if (word && !libraryWords.includes(word)) setLibraryWords((words) => [word, ...words]);
+                  setNewLibraryWord("");
+                }}>
+                  <input value={newLibraryWord} maxLength={6} placeholder="输入新词…" onChange={(event) => setNewLibraryWord(event.currentTarget.value)} />
+                  <button type="submit">＋ 添加</button>
+                </form>
+                <div className="library-categories">
+                  {["全部", "自然", "时间", "地点", "情绪"].map((category) => <button className={libraryCategory === category ? "is-selected" : ""} key={category} type="button" onClick={() => setLibraryCategory(category)}>{category}</button>)}
+                  <button type="button">＋</button>
+                </div>
+                <label className="library-search">
+                  <input value={librarySearch} placeholder="搜索词语…" onChange={(event) => setLibrarySearch(event.currentTarget.value)} />
+                  <span aria-hidden="true"><img src={icon("library-search-1.svg")} alt="" /><img src={icon("library-search-2.svg")} alt="" /></span>
+                </label>
+                <div className="library-word-list">
+                  {managedWords.map((word, index) => <button key={word} type="button" style={{ backgroundImage: `url("${icon(`library-word-${index % 5 + 1}.svg`)}")` }}>{word}</button>)}
+                </div>
+              </> : <div className="library-sentence-list">
+                {managedSentences.map((sentence, index) => <article key={`${sentence}-${index}`}>{sentence}</article>)}
+              </div>}
+            </div>}
+            <nav className="manage-tabs" aria-label="管理类型">
+              <button type="button" aria-label="图片管理" onClick={() => setManageSection("images")}>
+                {manageSection === "images" ? <img src={icon("manage-tab-image.svg")} alt="" /> : <span className="library-image-tab"><img src={icon("library-tab-image-base.svg")} alt="" /><img src={icon("library-tab-image-icon.svg")} alt="" /></span>}
+              </button>
+              <button type="button" aria-label="音频管理" onClick={() => setManageSection("audio")}><img src={icon(manageSection === "audio" ? "manage-tab-audio-selected.svg" : manageSection === "cards" ? "library-tab-audio.svg" : "manage-tab-audio.svg")} alt="" /></button>
+              <button type="button" aria-label="卡片管理" onClick={() => setManageSection("cards")}><img src={icon(manageSection === "cards" ? "library-tab-cards.svg" : "manage-tab-cards.svg")} alt="" /></button>
+              <button type="button" aria-label="内页与颜色" onClick={() => setManageSection("settings")}><img src={icon(manageSection === "settings" ? "manage-tab-settings-selected.svg" : "manage-tab-settings.svg")} alt="" /></button>
+            </nav>
+          </section>
         )}
       </section>
     </main>
