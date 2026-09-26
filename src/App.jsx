@@ -17,15 +17,6 @@ const GUIDE_SENTENCE_CARDS = [
   { avatar: 2, parts: [textPart("如今，十月的光落下来，已经不一样了。")] },
 ];
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
-const sentenceCardLineCount = (card) => {
-  const units = cardParts(card).reduce((total, part) => {
-    if (part.type === "text") return total + Array.from(part.value ?? "").length;
-    if (part.photo) return total + 30;
-    if (part.audio) return total + 15;
-    return total + Math.max(4, Array.from(part.value ?? "").length);
-  }, 0);
-  return Math.max(1, Math.ceil(units / 13));
-};
 const WORD_CARD_WIDTHS = [44, 65, 81, 101, 125, 143];
 const AUDIO_WAVEFORM = [4, 8, 12, 7, 15, 10, 6, 13, 17, 9, 5, 12, 8, 16, 11, 6, 14, 9, 17, 10, 5, 13, 8, 15];
 const extractAudioWaveform = async (blob, barCount = AUDIO_WAVEFORM.length) => {
@@ -75,6 +66,7 @@ export default function App() {
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
+  const [editorMode, setEditorMode] = useState("word");
   const [editorPosition, setEditorPosition] = useState({ left: 30, top: 200, pointerLeft: 130, placement: "below" });
   const editorSheetRef = useRef(null);
   const sentenceAreaRef = useRef(null);
@@ -114,8 +106,7 @@ export default function App() {
       window.removeEventListener("resize", updatePosition);
       document.removeEventListener("scroll", updatePosition, true);
     };
-  }, [blankEditor?.id]);
-  const [editorMode, setEditorMode] = useState("word");
+  }, [blankEditor?.id, editorMode]);
   const [selectedWordCategory, setSelectedWordCategory] = useState("全部");
   const [wordSearch, setWordSearch] = useState("");
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
@@ -140,6 +131,8 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingNotice, setRecordingNotice] = useState("");
   const [canAddSentence, setCanAddSentence] = useState(true);
+  const [sentenceLineCounts, setSentenceLineCounts] = useState({});
+  const [sentenceContentHeights, setSentenceContentHeights] = useState({});
   const releaseTimer = useRef(null);
   const blankId = useRef(5);
   const dialogInput = useRef(null);
@@ -759,6 +752,35 @@ export default function App() {
     return () => observer.disconnect();
   }, [currentPage, currentSentenceCards]);
 
+  useLayoutEffect(() => {
+    const area = sentenceAreaRef.current;
+    if (!area) return undefined;
+    const measureLines = () => {
+      const next = {};
+      const nextHeights = {};
+      area.querySelectorAll(":scope > .edit-sentence-card .sentence-text").forEach((textElement, index) => {
+        const lineHeight = Number.parseFloat(getComputedStyle(textElement).lineHeight) || 22;
+        next[`${currentPage}-${index}`] = Math.max(1, Math.ceil(textElement.scrollHeight / lineHeight));
+        nextHeights[`${currentPage}-${index}`] = Math.ceil(textElement.scrollHeight);
+      });
+      setSentenceLineCounts((previous) => {
+        const unchanged = Object.entries(next).every(([key, value]) => previous[key] === value);
+        return unchanged ? previous : { ...previous, ...next };
+      });
+      setSentenceContentHeights((previous) => {
+        const unchanged = Object.entries(nextHeights).every(([key, value]) => previous[key] === value);
+        return unchanged ? previous : { ...previous, ...nextHeights };
+      });
+    };
+    const frame = requestAnimationFrame(measureLines);
+    const observer = new ResizeObserver(measureLines);
+    area.querySelectorAll(":scope > .edit-sentence-card .sentence-text").forEach((textElement) => observer.observe(textElement));
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [currentPage, currentSentenceCards]);
+
   return (
     <main className="prototype-stage" aria-label="应用原型预览">
       <section
@@ -917,12 +939,14 @@ export default function App() {
 
         <section ref={sentenceAreaRef} className="sentence-area" aria-label="句子区域">
           {currentSentenceCards.map((card, index) => {
-            const visualLines = sentenceCardLineCount(card);
+            const visualLines = sentenceLineCounts[`${currentPage}-${index}`] ?? 1;
             const assetLines = Math.min(3, visualLines);
+            const contentHeight = sentenceContentHeights[`${currentPage}-${index}`] ?? 22;
+            const cardHeight = visualLines > 3 ? Math.max(62, contentHeight + 20) : 70 + (visualLines - 1) * 30;
             return (
             <div
-              className={`edit-sentence-card sentence-lines-${assetLines}${activeSentenceIndex === index ? " is-active" : ""}`}
-              style={{ "--sentence-card-height": `${70 + (visualLines - 1) * 30}px` }}
+              className={`edit-sentence-card sentence-lines-${assetLines}${visualLines > 3 ? " is-extended" : ""}${activeSentenceIndex === index ? " is-active" : ""}`}
+              style={{ "--sentence-card-height": `${cardHeight}px` }}
               aria-label={`第 ${index + 1} 个句子卡`}
               key={index}
               draggable
@@ -963,7 +987,7 @@ export default function App() {
                 window.setTimeout(() => { suppressSentenceClick.current = false; }, 0);
               }}
             >
-              <img className="edit-sentence-background" src={icon("edit-sentence.svg")} alt="" />
+              <span className="edit-sentence-background" aria-hidden="true" />
               <img
                 className="sentence-avatar"
                 src={icon(`user-${card.avatar}.svg`)}
@@ -1081,7 +1105,7 @@ export default function App() {
           <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="添加内容">
             <section
               ref={editorSheetRef}
-              className="content-editor-sheet"
+              className={`content-editor-sheet is-${editorMode}`}
               data-placement={editorPosition.placement}
               style={{ left: editorPosition.left, top: editorPosition.top, "--editor-pointer-left": `${editorPosition.pointerLeft}px` }}
               onClick={(event) => event.stopPropagation()}
@@ -1329,7 +1353,6 @@ export default function App() {
                 </div>
                 <label className="library-search">
                   <input value={librarySearch} placeholder="搜索词语…" onChange={(event) => setLibrarySearch(event.currentTarget.value)} />
-                  <span aria-hidden="true"><img src={icon("library-search-1.svg")} alt="" /><img src={icon("library-search-2.svg")} alt="" /></span>
                 </label>
                 <div className="library-word-list">
                   {managedWords.map((word, index) => <button key={word} type="button" style={{ backgroundImage: `url("${icon(`library-word-${index % 5 + 1}.svg`)}")` }}>{word}</button>)}
