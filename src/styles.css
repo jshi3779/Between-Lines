@@ -119,7 +119,7 @@ html, body, #root {
   inset: 0;
   z-index: 30;
   overflow-y: auto;
-  padding: 54px 13px 32px;
+  padding: 54px 13px 92px;
   background: #eceae5;
   color: #242222;
   font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
@@ -150,22 +150,16 @@ html, body, #root {
   cursor: pointer;
 }
 
-.page-overview > p {
-  margin: 6px 0 10px;
-  color: #79746d;
-  font-size: 10px;
-  text-align: center;
-}
-
 .page-overview-grid {
+  margin-top: 17px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 10px;
+  gap: 10px 8px;
 }
 
 .page-overview-card {
   position: relative;
-  height: 170px;
+  height: 160px;
   overflow: hidden;
   padding: 0;
   border: 2px solid transparent;
@@ -211,10 +205,10 @@ html, body, #root {
 }
 
 .page-overview-header button img { display: block; width: 25px; height: 25px; object-fit: contain; }
-.overview-book { position: absolute; inset: 0 0 20px; overflow: hidden; border-radius: 6px; }
+.overview-book { position: absolute; inset: 0 0 10px; overflow: visible; border-radius: 6px; }
 .overview-card-container { position: relative; min-width: 0; }
 .overview-card-container .page-overview-card { width: 100%; }
-.overview-select-toggle { position: absolute; top: 9px; right: 7px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.overview-select-toggle { position: absolute; top: 10px; right: 8px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .overview-select-toggle img { display: block; width: 19px; height: 19px; }
 .overview-select-toggle:focus-visible { outline: 2px solid #3465d6; outline-offset: 2px; border-radius: 50%; }
 .page-overview-card .overview-book img { width: 50%; height: 100%; object-fit: fill; }
@@ -227,7 +221,89 @@ html, body, #root {
 .overview-selection { position: absolute; top: 14px; right: 10px; width: 22px; height: 22px; }
 .page-overview-card .overview-selection img { width: 100%; height: 100%; object-fit: contain; }
 .overview-selection b { position: relative; color: white; font-size: 12px; line-height: 22px; }
-.page-overview-card .overview-card-caption { bottom: 2px; left: 0; width: 100%; padding: 0; background: transparent; font-size: 9px; color: #5f5f65; }
+.page-overview-card .overview-card-caption { bottom: 0; left: 0; width: 100%; padding: 0; background: transparent; font-size: 10px; color: #242222; text-align: center; }
+
+.overview-capsule-action {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 22px;
+  width: min(324px, calc(100% - 52px));
+  min-height: 48px;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 24px;
+  background: #242222;
+  color: #fff;
+  font: 15px/1.2 "851 GBai Marker", "Segoe Print", cursive;
+  cursor: pointer;
+}
+
+.capsule-date-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  background: rgb(36 34 34 / 30%);
+}
+
+.capsule-date-dialog {
+  width: min(323px, calc(100% - 52px));
+  padding: 22px 22px 20px;
+  border-radius: 20px 18px 22px 17px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(36 34 34 / 18%);
+}
+
+.capsule-date-title,
+.capsule-month-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.capsule-date-title h3 { margin: 0; font-size: 20px; font-weight: 400; }
+.capsule-date-title button,
+.capsule-month-row button { border: 0; background: transparent; color: #242222; font: 24px/1 inherit; cursor: pointer; }
+.capsule-month-row { margin: 18px 6px 12px; }
+.capsule-month-row strong { font-size: 15px; font-weight: 400; }
+.capsule-weekdays,
+.capsule-calendar { display: grid; grid-template-columns: repeat(7, 1fr); }
+.capsule-weekdays { margin-bottom: 5px; color: #918b83; font: 10px/26px Arial, sans-serif; text-align: center; }
+.capsule-calendar { row-gap: 3px; }
+.capsule-calendar > span,
+.capsule-calendar > button { height: 31px; }
+.capsule-calendar > button {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #242222;
+  font: 11px Arial, sans-serif;
+  cursor: pointer;
+}
+.capsule-calendar > button.is-in-range { background: #eee8dc; }
+.capsule-calendar > button.is-range-edge {
+  border-radius: 0;
+  background-color: transparent;
+  background-image: url("/icons/capsule-date-selected.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 31px 31px;
+  color: #fff;
+}
+.capsule-confirm {
+  width: 100%;
+  height: 38px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 20px;
+  background: #242222;
+  color: #fff;
+  font: 14px "851 GBai Marker", "Segoe Print", cursive;
+  cursor: pointer;
+}
 
 .share-dialog {
   position: absolute;

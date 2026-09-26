@@ -124,6 +124,9 @@ export default function App() {
   const [inkTone, setInkTone] = useState("#242222");
   const [pagePattern, setPagePattern] = useState("plain");
   const [selectedSpreads, setSelectedSpreads] = useState([]);
+  const [isCapsuleDateOpen, setIsCapsuleDateOpen] = useState(false);
+  const [capsuleMonth, setCapsuleMonth] = useState({ year: 2026, month: 8 });
+  const [capsuleRange, setCapsuleRange] = useState([4, 17]);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
   const [recentPhotos, setRecentPhotos] = useState([]);
@@ -830,16 +833,14 @@ export default function App() {
           <section className="page-overview" aria-label="全部页面总览">
             <div className="page-overview-header">
               <button type="button" aria-label="返回笔记本" onClick={() => setIsPageOverviewOpen(false)}><img src={icon("back.svg")} alt="" /></button>
-              <h2>所有页面</h2>
+              <h2>无标题</h2>
               <button type="button" aria-label="分享笔记本" onClick={() => setIsShareOpen(true)}><img src={icon("overview-export.svg")} alt="" /></button>
             </div>
-            <p>共 {pageCount} 页</p>
             <div className="page-overview-grid">
               {Array.from({ length: Math.ceil(pageCount / 2) }, (_, index) => {
                 const page = index * 2 + 1;
                 const lastPage = Math.min(page + 1, pageCount);
                 const isSelected = selectedSpreads.includes(page);
-                const sentenceCount = (sentenceCards[page] ?? []).length + (lastPage > page ? (sentenceCards[lastPage] ?? []).length : 0);
                 return (
                   <div className="overview-card-container" key={page}>
                   <button
@@ -854,7 +855,7 @@ export default function App() {
                     <div className="overview-book">
                       <img className="overview-spread-image" src={icon(isSelected ? "spread-thumbnail-selected.svg" : "spread-thumbnail-unselected.svg")} alt="双页展开缩略图" />
                     </div>
-                    <span className="overview-card-caption">第 {page}{lastPage > page ? `–${lastPage}` : ""} 页 · {sentenceCount} 个句子</span>
+                    <span className="overview-card-caption">跨页 {index + 1}</span>
                   </button>
                   <button
                     type="button"
@@ -869,6 +870,52 @@ export default function App() {
                 );
               })}
             </div>
+            {selectedSpreads.length > 0 && (
+              <button className="overview-capsule-action" type="button" onClick={() => setIsCapsuleDateOpen(true)}>
+                将选 {selectedSpreads.length} 页封存为时间胶囊
+              </button>
+            )}
+
+            {isCapsuleDateOpen && (() => {
+              const { year, month } = capsuleMonth;
+              const firstDay = new Date(year, month, 1).getDay();
+              const mondayOffset = (firstDay + 6) % 7;
+              const dayCount = new Date(year, month + 1, 0).getDate();
+              const days = [...Array(mondayOffset).fill(null), ...Array.from({ length: dayCount }, (_, i) => i + 1)];
+              const [rangeStart, rangeEnd] = capsuleRange;
+              const changeMonth = (step) => setCapsuleMonth((value) => {
+                const next = new Date(value.year, value.month + step, 1);
+                return { year: next.getFullYear(), month: next.getMonth() };
+              });
+              const chooseDay = (day) => setCapsuleRange(([start, end]) => (!start || end ? [day, null] : [Math.min(start, day), Math.max(start, day)]));
+              return (
+                <div className="capsule-date-backdrop" role="presentation" onClick={() => setIsCapsuleDateOpen(false)}>
+                  <section className="capsule-date-dialog" role="dialog" aria-modal="true" aria-label="选择日期" onClick={(event) => event.stopPropagation()}>
+                    <div className="capsule-date-title">
+                      <h3>选择日期</h3>
+                      <button type="button" aria-label="关闭日期选择" onClick={() => setIsCapsuleDateOpen(false)}>×</button>
+                    </div>
+                    <div className="capsule-month-row">
+                      <button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}>‹</button>
+                      <strong>{year}年{month + 1}月</strong>
+                      <button type="button" aria-label="下个月" onClick={() => changeMonth(1)}>›</button>
+                    </div>
+                    <div className="capsule-weekdays">{["一", "二", "三", "四", "五", "六", "日"].map((day) => <span key={day}>{day}</span>)}</div>
+                    <div className="capsule-calendar">
+                      {days.map((day, index) => day ? (
+                        <button
+                          key={day}
+                          type="button"
+                          className={`${day >= rangeStart && day <= (rangeEnd ?? rangeStart) ? "is-in-range" : ""} ${day === rangeStart || day === rangeEnd ? "is-range-edge" : ""}`}
+                          onClick={() => chooseDay(day)}
+                        >{day}</button>
+                      ) : <span key={`blank-${index}`} />)}
+                    </div>
+                    <button className="capsule-confirm" type="button" onClick={() => setIsCapsuleDateOpen(false)}>确认</button>
+                  </section>
+                </div>
+              );
+            })()}
           </section>
         )}
 
