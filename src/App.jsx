@@ -119,6 +119,9 @@ export default function App() {
   const [manageSection, setManageSection] = useState("images");
   const [libraryMode, setLibraryMode] = useState("words");
   const [libraryCategory, setLibraryCategory] = useState("全部");
+  const [customLibraryCategories, setCustomLibraryCategories] = useState([]);
+  const [isAddingLibraryCategory, setIsAddingLibraryCategory] = useState(false);
+  const [newLibraryCategory, setNewLibraryCategory] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryWords, setLibraryWords] = useState(["十月", "秋天", "黄昏", "霜", "星期二"]);
   const [newLibraryWord, setNewLibraryWord] = useState("");
@@ -1527,8 +1530,21 @@ export default function App() {
                   <button type="submit">＋ 添加</button>
                 </form>
                 <div className="library-categories">
-                  {["全部", "自然", "时间", "地点", "情绪"].map((category) => <button className={libraryCategory === category ? "is-selected" : ""} key={category} type="button" onClick={() => setLibraryCategory(category)}>{category}</button>)}
-                  <button type="button">＋</button>
+                  {[...WORD_CATEGORIES, ...customLibraryCategories].map((category) => <button className={libraryCategory === category ? "is-selected" : ""} key={category} type="button" onClick={() => setLibraryCategory(category)}>{category}</button>)}
+                  {isAddingLibraryCategory ? <form className="library-category-add" onSubmit={(event) => {
+                    event.preventDefault();
+                    const category = newLibraryCategory.trim().slice(0, 8);
+                    if (category && ![...WORD_CATEGORIES, ...customLibraryCategories].includes(category)) {
+                      setCustomLibraryCategories((categories) => [...categories, category]);
+                      setLibraryCategory(category);
+                    }
+                    setNewLibraryCategory("");
+                    setIsAddingLibraryCategory(false);
+                  }}>
+                    <input autoFocus aria-label="新标签名称" maxLength={8} placeholder="标签名" value={newLibraryCategory} onChange={(event) => setNewLibraryCategory(event.currentTarget.value)} />
+                    <button type="submit">添加</button>
+                    <button type="button" aria-label="取消添加标签" onClick={() => { setIsAddingLibraryCategory(false); setNewLibraryCategory(""); }}>×</button>
+                  </form> : <button className="library-category-add-trigger" type="button" aria-label="添加标签" onClick={() => setIsAddingLibraryCategory(true)}>＋</button>}
                 </div>
                 <label className="library-search">
                   <input value={librarySearch} placeholder="搜索词语…" onChange={(event) => setLibrarySearch(event.currentTarget.value)} />

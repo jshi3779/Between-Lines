@@ -1665,7 +1665,12 @@ html, body, #root {
 }
 
 .library-categories button.is-selected { background: #000; color: #fff; }
-.library-categories button:last-child { background: transparent; font-size: 11px; }
+.library-categories button.library-category-add-trigger { padding-right: 5px; padding-left: 5px; background: transparent; font-size: 16px; }
+.library-category-add { display: flex; flex: none; align-items: center; gap: 4px; height: 26px; padding: 0 5px 0 8px; border: 1px solid #d3d0ca; border-radius: 13px; background: #fff; }
+.library-category-add input { width: 58px; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: #242222; font: inherit; font-size: 12px; }
+.library-category-add input::placeholder { color: #87898f; }
+.library-category-add button { padding: 2px 5px; border-radius: 9px; background: #242222; color: #fff; font-size: 10px; }
+.library-category-add button:last-child { padding: 0 3px; background: transparent; color: #666; font-size: 15px; }
 
 .library-search {
   position: relative;
