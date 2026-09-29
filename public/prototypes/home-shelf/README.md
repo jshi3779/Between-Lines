@@ -5,6 +5,10 @@ Collage Poetry Figma file (画板 `Screen / Shelfopen` / `Shelfopen2`, and the i
 node `123:1970`). It's independent of the Vite + React app in `src/` — open `index.html`
 directly in a browser, no build step, no dependencies.
 
+Lives under `public/` so it's carried into `dist/` untouched by the Vite build and served
+live at `https://jshi3779.github.io/Between-Lines/prototypes/home-shelf/` alongside the
+React app, without being part of it.
+
 ## What it covers
 
 - The 3D "book browsing" shelf: tap a spine, or drag/flick the shelf, to turn a notebook
