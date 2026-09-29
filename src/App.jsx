@@ -571,6 +571,32 @@ export default function App() {
     });
   };
 
+  // The persistent toolbar's 词卡/图片/音频 buttons all insert a blank at the caret in the
+  // active card (same mechanic the space bar already triggers while typing), then jump
+  // straight into that blank's editor on the matching tab instead of leaving it empty for a
+  // second tap — pressing "图片"/"音频" with nothing to fill in would otherwise do nothing.
+  const insertIntoActiveSentence = (mode) => {
+    if (!currentSentenceCards.length) return;
+    const index = activeSentenceIndex != null && activeSentenceIndex < currentSentenceCards.length
+      ? activeSentenceIndex
+      : currentSentenceCards.length - 1;
+    const element = sentenceAreaRef.current?.querySelector(`[data-sentence-index="${index}"]`);
+    if (!element) return;
+
+    const selection = window.getSelection();
+    let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    if (!range || !element.contains(range.startContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+    }
+
+    insertBlankWordCard(index, element, range);
+    const id = blankId.current;
+    setEditorMode(mode);
+    setBlankEditor({ page: currentPage, index, id, value: "" });
+  };
+
   const removeBlankWordCard = (index, id, childIndex) => {
     skipSentenceBlur.current.add(`${currentPage}-${index}`);
     setSentenceCards((cards) => ({
@@ -1207,6 +1233,48 @@ export default function App() {
                 }}
               >从句库添加</button>
             </div>
+          )}
+
+          {hasSentence && !isSentenceLibraryOpen && (
+            <nav className="card-toolbar" aria-label="添加内容">
+              <button
+                type="button"
+                className="card-toolbar-button"
+                disabled={!canAddSentence}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={addSentence}
+              >
+                <span className="card-toolbar-icon card-toolbar-icon-sentence" aria-hidden="true">＋</span>
+                <span>句卡</span>
+              </button>
+              <button
+                type="button"
+                className="card-toolbar-button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insertIntoActiveSentence("word")}
+              >
+                <img className="card-toolbar-icon" src={icon("content-tab-word-default.svg")} alt="" />
+                <span>词卡</span>
+              </button>
+              <button
+                type="button"
+                className="card-toolbar-button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insertIntoActiveSentence("photo")}
+              >
+                <img className="card-toolbar-icon" src={icon("content-tab-photo-default.svg")} alt="" />
+                <span>图片</span>
+              </button>
+              <button
+                type="button"
+                className="card-toolbar-button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insertIntoActiveSentence("audio")}
+              >
+                <img className="card-toolbar-icon" src={icon("content-tab-audio-default.svg")} alt="" />
+                <span>音频</span>
+              </button>
+            </nav>
           )}
 
           {!hasSentence && (

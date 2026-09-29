@@ -1303,6 +1303,57 @@ html, body, #root {
 }
 
 
+/* Persistent card toolbar: stays on screen whenever the page has at least one sentence card,
+   so a word/photo/audio card can be dropped into whichever card is active without leaving the
+   flow of writing — the same insertion the space bar already triggers, just discoverable. */
+.card-toolbar {
+  position: absolute;
+  left: 16px;
+  right: 96px;
+  bottom: 34px;
+  z-index: 2;
+  display: flex;
+  height: 56px;
+  padding: 0 4px;
+  border-radius: 28px;
+  background: #fbfaf6;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 14%);
+}
+
+.card-toolbar-button {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #79746d;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.card-toolbar-button:disabled { opacity: 0.35; cursor: default; }
+.card-toolbar-button:not(:disabled):hover,
+.card-toolbar-button:not(:disabled):focus-visible { color: #242222; }
+.card-toolbar-button:focus-visible { outline: 2px solid #3465d6; outline-offset: 2px; border-radius: 12px; }
+
+.card-toolbar-icon {
+  display: block;
+  height: 15px;
+}
+
+.card-toolbar-icon-sentence {
+  display: grid;
+  place-items: center;
+  height: 15px;
+  font-size: 18px;
+  line-height: 1;
+}
+
 .add-page-button {
   position: absolute;
   right: 10px;
