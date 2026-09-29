@@ -1241,10 +1241,14 @@ export default function App() {
               aria-labelledby="sentence-library-title"
               onClick={(event) => event.stopPropagation()}
             >
+              <div className="content-editor-sheet-background" aria-hidden="true">
+                <img className="panel-top" src={icon("panel-top.svg")} alt="" />
+                <img className="panel-middle" src={icon("panel-middle.svg")} alt="" />
+                <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
+              </div>
               <header className="sentence-library-header">
                 <div>
                   <h2 id="sentence-library-title">从句库添加</h2>
-                  <p>点一句，加入当前页</p>
                 </div>
                 <button ref={sentenceLibraryClose} type="button" aria-label="关闭句库" onClick={closeSentenceLibrary}>×</button>
               </header>
@@ -1265,8 +1269,8 @@ export default function App() {
               </nav>
               <div className="sentence-library-list">
                 {visibleLibrarySentences.map((entry) => (
-                  <button key={entry.id} type="button" onClick={() => insertLibrarySentence(entry)}>
-                    <span className="sentence-library-preview">{entry.parts.map((part, index) => part.type === "blank" ? <i key={index} aria-label="留白" /> : <span key={index}>{part.value}</span>)}</span>
+                  <button key={entry.id} type="button" className="sentence-library-card" onClick={() => insertLibrarySentence(entry)}>
+                    <span className="sentence-library-preview" data-lines={Math.min(3, Math.max(1, Math.ceil(Array.from(entry.parts.map((part) => part.type === "blank" ? "　" : part.value).join("")).length / 15)))}>{entry.parts.map((part, index) => part.type === "blank" ? <i key={index} aria-label="留白" /> : <span key={index}>{part.value}</span>)}</span>
                     <small>{entry.category}</small>
                   </button>
                 ))}
