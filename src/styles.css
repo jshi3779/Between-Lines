@@ -1450,8 +1450,8 @@ html, body, #root {
 .manage-tabs img { display: block; max-width: none; }
 
 .manage-screen-cards .manage-paper { height: 732px; }
-.manage-screen-cards .manage-back { top: 54px; }
-.manage-screen-cards > h2 { top: 58px; }
+.manage-screen-cards .manage-back { top: 45px; }
+.manage-screen-cards > h2 { top: 49px; }
 
 .appearance-library {
   position: absolute;

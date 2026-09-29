@@ -1450,7 +1450,7 @@ export default function App() {
             <button className="manage-back" type="button" aria-label="返回笔记本" onClick={() => setIsManageOpen(false)}>
               <img src={icon(manageSection === "cards" ? "library-back.svg" : "manage-back.svg")} alt="" />
             </button>
-            <h2>{manageSection === "images" ? "图片管理" : manageSection === "audio" ? "音频管理" : manageSection === "settings" ? "内页与颜色" : "管理"}</h2>
+            <h2>{manageSection === "images" ? "图片管理" : manageSection === "audio" ? "音频管理" : manageSection === "settings" ? "内页与颜色" : "内容管理"}</h2>
             {manageSection === "images" ? <>
               <div className="manage-grid" aria-label="图片素材">
                 {managedPhotos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.name} />)}
@@ -1541,11 +1541,11 @@ export default function App() {
               </div>}
             </div>}
             <nav className="manage-tabs" aria-label="管理类型">
+              <button type="button" aria-label="卡片管理" onClick={() => setManageSection("cards")}><img src={icon(manageSection === "cards" ? "library-tab-cards.svg" : "manage-tab-cards.svg")} alt="" /></button>
               <button type="button" aria-label="图片管理" onClick={() => setManageSection("images")}>
                 {manageSection === "images" ? <img src={icon("manage-tab-image.svg")} alt="" /> : <span className="library-image-tab"><img src={icon("library-tab-image-base.svg")} alt="" /><img src={icon("library-tab-image-icon.svg")} alt="" /></span>}
               </button>
               <button type="button" aria-label="音频管理" onClick={() => setManageSection("audio")}><img src={icon(manageSection === "audio" ? "manage-tab-audio-selected.svg" : manageSection === "cards" ? "library-tab-audio.svg" : "manage-tab-audio.svg")} alt="" /></button>
-              <button type="button" aria-label="卡片管理" onClick={() => setManageSection("cards")}><img src={icon(manageSection === "cards" ? "library-tab-cards.svg" : "manage-tab-cards.svg")} alt="" /></button>
               <button type="button" aria-label="内页与颜色" onClick={() => setManageSection("settings")}><img src={icon(manageSection === "settings" ? "manage-tab-settings-selected.svg" : "manage-tab-settings.svg")} alt="" /></button>
             </nav>
           </section>
