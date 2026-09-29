@@ -89,11 +89,49 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
     radial-gradient(ellipse 24% 22% at 52% 52%, #8a9caa 0 62%, transparent 66%),
     radial-gradient(ellipse 16% 24% at 80% 42%, #c4ccd5 0 62%, transparent 66%),
     #f3f0e9}
-.ccss .sl{position:absolute;right:9px;top:12px;width:14px}
 .ccss .ttl{position:absolute;left:15.7px;top:70.3%;font-family:var(--marker);font-size:20px;line-height:24px;white-space:nowrap;color:var(--tc)}
 .ccss .dots{position:absolute;left:15px;bottom:5px;display:flex}
 .ccss .dots i{width:19px;height:19px;border-radius:50%;background:var(--tc);border:2.5px solid #f6f3ec;margin-right:-7px}
-.trash{position:absolute;width:18px;height:18px;opacity:0;pointer-events:none}
+/* per-book delete / edit controls — real tappable buttons, only reachable once the book is open (the .cover face
+   isn't front-facing otherwise) and additionally faded so they don't linger during the leaning<->standing transition */
+.trashBtn{position:absolute;right:3px;bottom:3px;width:30px;height:30px;padding:0;border:0;background:none;cursor:pointer;opacity:0;transition:opacity .15s;-webkit-tap-highlight-color:transparent}
+.trashBtn img{position:absolute;left:6px;top:6px;width:18px;height:18px}
+.editBtn{position:absolute;right:1px;top:4px;width:30px;height:30px;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.editBtn .sl{position:absolute;right:8px;top:8px;width:14px}
+.editBtn:focus-visible,.trashBtn:focus-visible{outline:2px solid #2f6bf2;outline-offset:2px;border-radius:6px}
+
+/* shared modal for delete-confirm and edit-notebook, dimming the whole screen */
+#modalRoot{position:absolute;inset:0;z-index:40;pointer-events:none}
+.modalBack{position:absolute;inset:0;background:rgba(20,18,14,.4);display:flex;align-items:center;justify-content:center;pointer-events:auto}
+.modalCard{width:280px;max-width:calc(100% - 40px);background:#f6f3ec;border-radius:16px;padding:18px 20px 16px;
+  box-shadow:0 18px 40px -12px rgba(0,0,0,.5);font-family:'Segoe UI',system-ui,sans-serif}
+.modalCard h3{margin:0 0 6px;font-family:var(--marker);font-size:19px;font-weight:400;color:#1d1c18}
+.modalCard p{margin:0 0 14px;font-size:12.5px;color:#8b867c;line-height:1.5}
+.mLabel{display:block;font-size:11px;letter-spacing:.5px;color:#8b867c;margin:12px 0 6px;text-transform:uppercase}
+.mInput{width:100%;box-sizing:border-box;border:1px solid #d8d3c6;border-radius:9px;padding:9px 11px;font-family:var(--marker);font-size:16px;background:#fff;color:#1d1c18}
+.mInput:focus{outline:2px solid #2f6bf2;outline-offset:1px}
+.swatches{display:flex;gap:9px;flex-wrap:wrap}
+.swatch{width:28px;height:28px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;padding:0}
+.swatch.on{border-color:#1d1c18}
+.coverPick{display:flex;gap:12px;align-items:center}
+.coverPreview{position:relative;overflow:hidden;width:56px;height:56px;border-radius:10px;background:#fff no-repeat center/cover;
+  border:1.5px dashed #d8d3c6;flex:0 0 auto}
+.coverPreview.empty{background-image:none!important}
+.coverPreview.empty::after{content:'';position:absolute;inset:0;background:
+    radial-gradient(ellipse 26% 26% at 32% 34%, #b9c3ce 0 60%, transparent 64%),
+    radial-gradient(ellipse 30% 28% at 55% 55%, #8a9caa 0 60%, transparent 64%),
+    radial-gradient(ellipse 22% 30% at 78% 42%, #c4ccd5 0 60%, transparent 64%),
+    #f3f0e9}
+.coverPickBtns{display:flex;flex-direction:column;gap:6px;flex:1}
+.mUpload,.mRemoveCover{border:0;border-radius:16px;padding:7px 12px;font-family:'Segoe UI',system-ui,sans-serif;font-size:12.5px;cursor:pointer;text-align:center}
+.mUpload{background:#171a16;color:#fff}
+.mRemoveCover{background:#e7e2d4;color:#8b4a3f}
+.modalBtns{display:flex;gap:10px;margin-top:18px}
+.modalBtns button{flex:1;border:0;border-radius:22px;padding:10px 0;font-family:var(--marker);font-size:15px;cursor:pointer}
+.mCancel{background:#e7e2d4;color:#1d1c18}
+.mSave{background:#171a16;color:#fff}
+.mDanger{background:#b53a2f;color:#fff}
+.trash{position:absolute;width:18px;height:18px;pointer-events:none}
 
 /* bottom navigation: four 51px icons, two states each (black disc = not selected, brush ring on cream = selected) */
 #nav{position:absolute;left:0;top:0;width:375px;height:0}
@@ -132,6 +170,7 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
         <div class="navBack"></div>
         <div id="nav"></div>
         <div class="toast" id="toast"></div>
+        <div id="modalRoot"></div>
       </div>
     </div>
   </div>
@@ -145,6 +184,8 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
   const $=id=>document.getElementById(id);
   const mod=(a,n)=>((a%n)+n)%n;
   const ease=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;      // ease-in-out, slow-fast-slow like the reference video
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const escAttr=s=>esc(s).replace(/"/g,'&quot;');
   const screen=$('screen'), shelvesWrap=$('shelvesWrap'), shelvesInner=$('shelvesInner');
   $('title').src=IMG.title; $('line1').src=IMG.line1; $('line2').src=IMG.line2;
 
@@ -201,11 +242,13 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
     recomputeGaps(S);
 
     function coverHTML(b){
-      const trash=`<img class="trash" src="${IMG.trash}" alt="" style="${b.cover?'left:146.7px;top:230.4px':'right:9px;bottom:9px'}">`;
-      if(b.cover) return `<img class="cimg" src="${IMG.cover}" alt="${b.title}">${trash}`;
+      const trashBtn=`<button type="button" class="trashBtn" aria-label="删除「${escAttr(b.title)}」" style="${b.cover?'left:140.7px;top:224.4px;right:auto;bottom:auto':''}"><img class="trash" src="${IMG.trash}" alt=""></button>`;
+      const editBtn=`<button type="button" class="editBtn" aria-label="编辑「${escAttr(b.title)}」">${b.cover?'':`<img class="sl" src="${IMG.sliders}" alt="">`}</button>`;
+      if(b.cover) return `<img class="cimg" src="${IMG.cover}" alt="${escAttr(b.title)}">${editBtn}${trashBtn}`;
       const fs=Math.min(20,Math.floor(1420/[...b.title].length)/10);   // long titles shrink to fit the cover
-      return `<div class="ccss" style="--c:${b.col};--tc:${b.tc}"><div class="art"></div><img class="sl" src="${IMG.sliders}" alt="">`+
-             `<div class="ttl" style="font-size:${fs}px">${b.title}</div><div class="dots"><i></i><i></i><i></i></div></div>${trash}`;
+      const artStyle=b.coverImg?`background-image:url(${b.coverImg});background-size:cover;background-position:center;`:'';
+      return `<div class="ccss" style="--c:${b.col};--tc:${b.tc}"><div class="art" style="${artStyle}"></div>${editBtn}`+
+             `<div class="ttl" style="font-size:${fs}px">${esc(b.title)}</div><div class="dots"><i></i><i></i><i></i></div></div>${trashBtn}`;
     }
     function makeSlot(v){
       const b=S.books[mod(v,S.N)], H=b.H, el=document.createElement('div');
@@ -213,15 +256,18 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
       el.style.top='0px'; el.style.width=W+'px'; el.style.height=H+'px';
       const cv=b.cover ? 'left:-2.25px;top:-3.35px;width:176.9px;height:256.7px;' : 'left:-0.6px;top:0;width:'+(W+0.6)+'px;height:'+H+'px;';
       const spineFace=b.sp ? `background-image:url(${IMG[b.sp]});` : `background:${b.col};`;
-      const spineInner=b.cover ? `<img class="str" src="${IMG.string}" alt="">` : (b.sp ? '' : `<div class="spineTxt"><span style="color:${b.tc}">${b.title}</span></div>`);
+      const spineInner=b.cover ? `<img class="str" src="${IMG.string}" alt="">` : (b.sp ? '' : `<div class="spineTxt"><span style="color:${b.tc}">${esc(b.title)}</span></div>`);
       el.innerHTML=
         `<div class="face back" style="width:${W}px;height:${H}px;background:${b.col};transform:translateZ(${-b.T}px) rotateY(180deg)"></div>`+
         `<div class="face spine" style="left:${-b.T/2}px;width:${b.T}px;height:${H}px;${spineFace}transform:translateZ(${-b.T/2}px) rotateY(-90deg)">${spineInner}</div>`+
         `<div class="face cover" style="${cv}">${coverHTML(b)}</div>`;
       el.addEventListener('click',()=>onBook(S,v));
       el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onBook(S,v); } });
+      const trashBtn=el.querySelector('.trashBtn'), editBtn=el.querySelector('.editBtn');
+      trashBtn.addEventListener('click',e=>{ e.stopPropagation(); confirmDelete(S,v); });
+      editBtn.addEventListener('click',e=>{ e.stopPropagation(); openEdit(S,v); });
       S.row.appendChild(el);
-      S.slots.set(v,{v,b,el,o:0,trash:el.querySelector('.trash')});
+      S.slots.set(v,{v,b,el,o:0,trash:trashBtn,edit:editBtn});
     }
     function ensure(){
       if(S.N>=5){                                        // roomy buffer: smooth crossfade well before slots are destroyed
@@ -234,7 +280,7 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
         for(const [v,s] of S.slots) if(v<lo||v>hi){ s.el.remove(); S.slots.delete(v); }
       }
     }
-    function rebuild(){ for(const s of S.slots.values()) s.el.remove(); S.slots.clear(); ensure(); }
+    function rebuild(){ for(const s of S.slots.values()) s.el.remove(); S.slots.clear(); ensure(); render(); }   // new slots get no transform until a render runs; callers that don't already goTo() need this
     function render(){
       const a=Math.round(S.pos); if(a!==S.A){ S.A=a; ensure(); }
       const fl=Math.floor(S.pos), f=S.pos-fl;
@@ -266,7 +312,9 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
         s.el.style.zIndex=String(1+Math.round(s.o*10));
         s.el.style.opacity=s.vis.toFixed(3);
         s.el.style.pointerEvents=s.vis>0.05?'auto':'none';
-        s.trash.style.opacity=String(Math.pow(s.o,6));
+        const bo=String(Math.pow(s.o,6)), reach=s.o>0.6?'auto':'none';
+        s.trash.style.opacity=bo; s.trash.style.pointerEvents=reach;
+        s.edit.style.opacity=bo; s.edit.style.pointerEvents=reach;
       }
     }
     function tick(now){
@@ -299,7 +347,17 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
       kick();
     }
     function pushBook(spec){ if(spec.yc===undefined) spec.yc=cfg.BOT-vext(spec.T,spec.H,spec.phi)/2; S.books.push(prep(spec)); recomputeGaps(S); rebuild(); }   // leaning bottom = standing bottom = BOT, so it's always exactly LINE_GAP from the line, closed or open
-    Object.assign(S,{ensure,render,kick,cur,goTo,rebuild,pushBook});
+    function removeBook(v){                                // false if refused (a shelf never drops below its last notebook)
+      if(S.books.length<=1) return false;
+      const idx=mod(v,S.N);
+      S.books.splice(idx,1);
+      S.cfg.clr={closed:[],openL:[],openR:[]};              // the Figma-measured per-pair clearances no longer line up once the book count changes
+      recomputeGaps(S);
+      S.anim=null; S.pos=Math.min(idx,S.books.length-1); S.A=Math.round(S.pos);
+      rebuild();
+      return true;
+    }
+    Object.assign(S,{ensure,render,kick,cur,goTo,rebuild,pushBook,removeBook});
     if(S.N>0){ ensure(); render(); }   // a freshly-created empty shelf (N=0) has nothing to lay out yet; pushBook()+goTo() render it once a book exists
     return S;
   }
@@ -373,6 +431,100 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
   /* ---------- input ---------- */
   let toastT;
   function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1500); }
+
+  /* ---------- delete-confirm / edit-notebook modal (shared; only one can be open) ---------- */
+  const modalRoot=$('modalRoot');
+  function closeModal(){ modalRoot.innerHTML=''; modalRoot.style.pointerEvents='none'; }
+  function confirmDelete(S,v){
+    const b=S.books[mod(v,S.N)];
+    modalRoot.style.pointerEvents='auto';
+    modalRoot.innerHTML=`<div class="modalBack"><div class="modalCard">
+      <h3>删除「${esc(b.title)}」？</h3>
+      <p>删除后无法恢复。</p>
+      <div class="modalBtns"><button type="button" class="mCancel">取消</button><button type="button" class="mDanger">删除</button></div>
+    </div></div>`;
+    const back=modalRoot.querySelector('.modalBack');
+    back.addEventListener('click',e=>{ if(e.target===back) closeModal(); });
+    modalRoot.querySelector('.mCancel').addEventListener('click',closeModal);
+    modalRoot.querySelector('.mDanger').addEventListener('click',()=>{
+      const ok=S.removeBook(v); closeModal();
+      toast(ok?'已删除「'+b.title+'」':'每层至少保留 1 本笔记本');
+    });
+  }
+  // downscale/re-encode an uploaded image client-side so a phone-camera photo doesn't bloat the page; returns a data URI
+  function loadCoverFile(file){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onerror=()=>reject(reader.error);
+      reader.onload=()=>{
+        const img=new Image();
+        img.onerror=()=>reject(new Error('bad image'));
+        img.onload=()=>{
+          const MAX=640, s=Math.min(1,MAX/Math.max(img.width,img.height));
+          const w=Math.max(1,Math.round(img.width*s)), h=Math.max(1,Math.round(img.height*s));
+          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(cv.toDataURL('image/jpeg',0.85));
+        };
+        img.src=reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function openEdit(S,v){
+    const b=S.books[mod(v,S.N)];
+    if(b.sp||b.cover){ toast('这本笔记本的美术来自设计稿，暂不支持编辑'); return; }
+    modalRoot.style.pointerEvents='auto';
+    const swatches=NEW_PALETTE.map(p=>`<button type="button" class="swatch" data-col="${p.col}" data-tc="${p.tc}" style="background:${p.col}"></button>`).join('');
+    modalRoot.innerHTML=`<div class="modalBack"><div class="modalCard">
+      <h3>编辑笔记本</h3>
+      <label class="mLabel">名字</label>
+      <input class="mInput" type="text" maxlength="12" value="${escAttr(b.title)}">
+      <label class="mLabel">颜色</label>
+      <div class="swatches">${swatches}</div>
+      <label class="mLabel">封面图片</label>
+      <div class="coverPick">
+        <div class="coverPreview"></div>
+        <div class="coverPickBtns">
+          <button type="button" class="mUpload">上传图片</button>
+          <button type="button" class="mRemoveCover" hidden>移除图片</button>
+          <input type="file" accept="image/*" class="mFile" hidden>
+        </div>
+      </div>
+      <div class="modalBtns"><button type="button" class="mCancel">取消</button><button type="button" class="mSave">保存</button></div>
+    </div></div>`;
+    let chosen={col:b.col,tc:b.tc}, coverImg=b.coverImg||null;
+    const preview=modalRoot.querySelector('.coverPreview'), removeBtn=modalRoot.querySelector('.mRemoveCover');
+    function paintPreview(){
+      preview.style.backgroundImage=coverImg?`url(${coverImg})`:'';
+      preview.classList.toggle('empty',!coverImg);
+      removeBtn.hidden=!coverImg;
+    }
+    paintPreview();
+    const back=modalRoot.querySelector('.modalBack');
+    back.addEventListener('click',e=>{ if(e.target===back) closeModal(); });
+    modalRoot.querySelector('.mCancel').addEventListener('click',closeModal);
+    modalRoot.querySelectorAll('.swatch').forEach(sw=>{
+      if(sw.dataset.col.toLowerCase()===b.col.toLowerCase()) sw.classList.add('on');
+      sw.addEventListener('click',()=>{ modalRoot.querySelectorAll('.swatch').forEach(x=>x.classList.remove('on')); sw.classList.add('on'); chosen={col:sw.dataset.col,tc:sw.dataset.tc}; });
+    });
+    const fileInput=modalRoot.querySelector('.mFile');
+    modalRoot.querySelector('.mUpload').addEventListener('click',()=>fileInput.click());
+    fileInput.addEventListener('change',async()=>{
+      const file=fileInput.files[0]; fileInput.value=''; if(!file) return;
+      if(!file.type.startsWith('image/')){ toast('请选择图片文件'); return; }
+      try{ coverImg=await loadCoverFile(file); paintPreview(); }
+      catch{ toast('图片读取失败，换一张试试'); }
+    });
+    removeBtn.addEventListener('click',()=>{ coverImg=null; paintPreview(); });
+    const input=modalRoot.querySelector('.mInput');
+    modalRoot.querySelector('.mSave').addEventListener('click',()=>{
+      const t=input.value.trim();
+      b.title=t||b.title; b.col=chosen.col; b.tc=chosen.tc; b.coverImg=coverImg;
+      S.rebuild(); closeModal(); toast('已保存');
+    });
+  }
+
   let suppressClick=false, drag=null;
   function onBook(S,v){
     activeShelf=S;
@@ -381,6 +533,7 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
   }
   $('bell').addEventListener('click',()=>toast('No new notifications'));
   window.addEventListener('keydown',e=>{
+    if(modalRoot.firstChild){ if(e.key==='Escape') closeModal(); return; }   // typing in the edit dialog must not also move a shelf
     const S=activeShelf;
     if(e.key==='ArrowRight') S.goTo(S.cur()+1);
     if(e.key==='ArrowLeft') S.goTo(S.cur()-1);
@@ -394,7 +547,7 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
   screen.addEventListener('dragstart',e=>e.preventDefault());
   screen.addEventListener('pointerdown',e=>{
     if(e.button!==undefined && e.button!==0) return;
-    if(e.target.closest('#bell')) return;
+    if(e.target.closest('#bell')||modalRoot.firstChild) return;
     const S=shelfAt(contentY(e)); if(!S) return;
     drag={S,x:e.clientX,pos0:S.pos,moved:false,scale:screen.getBoundingClientRect().width/375,samples:[[e.timeStamp,e.clientX]]};
   });

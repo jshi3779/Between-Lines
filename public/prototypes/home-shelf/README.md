@@ -26,6 +26,10 @@ React app, without being part of it.
   shelf pages the view up by one shelf's height.
 - The `851 GBai Marker` font and every image asset are embedded as data URIs, so the file
   has zero external dependencies and works fully offline.
+- Per-notebook delete (with a confirm dialog; a shelf never drops below 1 notebook) and
+  edit (name, colour, and an uploaded cover image — downscaled client-side to a data URI).
+  Editing only applies to notebooks created in-app; the 10 Figma-sourced notebooks use real
+  exported artwork for their spine/cover and can only be deleted, not recoloured.
 
 ## Status
 
