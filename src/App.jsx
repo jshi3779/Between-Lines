@@ -59,7 +59,7 @@ const SAMPLE_PHOTOS = [{
 const MANAGE_THUMBNAILS = Array.from({ length: 12 }, (_, index) => icon(`manage-thumb-${String(index + 1).padStart(2, "0")}.png`));
 const MANAGE_LIBRARY_PHOTOS = MANAGE_THUMBNAILS.map((url, index) => ({ id: `library-photo-${index + 1}`, name: `素材 ${index + 1}`, url }));
 
-export default function App() {
+export default function App({ initialTitle, onExit }) {
   const [pageCount, setPageCount] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [sentenceCards, setSentenceCards] = useState({ 1: GUIDE_SENTENCE_CARDS });
@@ -897,7 +897,7 @@ export default function App() {
         }}
       >
         <header className="top-navigation">
-          <button className="nav-button nav-back" type="button" aria-label="返回">
+          <button className="nav-button nav-back" type="button" aria-label="返回" onClick={onExit}>
             <img src={icon("back.svg")} alt="" />
           </button>
           <button
@@ -915,7 +915,7 @@ export default function App() {
             spellCheck="false"
             aria-label="可编辑标题"
           >
-            无标题
+            {initialTitle || "无标题"}
           </h1>
 
           <div className="nav-actions">
