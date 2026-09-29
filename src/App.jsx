@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
+import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 
 const MAX_SENTENCE_CARDS = 5;
 const STARTER_SENTENCES = [
@@ -66,6 +66,9 @@ export default function App() {
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
+  const [isSentenceLibraryOpen, setIsSentenceLibraryOpen] = useState(false);
+  const [sentenceLibraryCategory, setSentenceLibraryCategory] = useState("全部");
+  const [sentenceLibrarySearch, setSentenceLibrarySearch] = useState("");
   const [editorMode, setEditorMode] = useState("word");
   const [editorPosition, setEditorPosition] = useState({ left: 30, top: 200, pointerLeft: 130, placement: "below" });
   const editorSheetRef = useRef(null);
@@ -138,6 +141,10 @@ export default function App() {
   const [sentenceContentHeights, setSentenceContentHeights] = useState({});
   const releaseTimer = useRef(null);
   const blankId = useRef(5);
+  const sentenceLibraryTrigger = useRef(null);
+  const sentenceLibraryClose = useRef(null);
+  const sentenceLibrarySheet = useRef(null);
+  const pendingSentenceFocus = useRef(null);
   const dialogInput = useRef(null);
   const skipSentenceBlur = useRef(new Set());
   const cameraInput = useRef(null);
@@ -275,23 +282,41 @@ export default function App() {
     releaseTimer.current = setTimeout(() => setIsAddPressed(false), 180);
   };
 
-  const addSentence = () => {
-    if (currentSentenceCards.length >= MAX_SENTENCE_CARDS || !canAddSentence) return;
-
+  const appendSentence = (parts, focusText = false) => {
+    if (currentSentenceCards.length >= MAX_SENTENCE_CARDS || !canAddSentence) return false;
     const avatar = Math.floor(Math.random() * 4) + 1;
     const nextIndex = currentSentenceCards.length;
-    const text = hasSeedSentence
-      ? ""
-      : STARTER_SENTENCES[Math.floor(Math.random() * STARTER_SENTENCES.length)];
+    const independentParts = parts.map((part) => part.type === "blank"
+      ? { ...part, id: ++blankId.current }
+      : { ...part });
+    pendingSentenceFocus.current = { page: currentPage, index: nextIndex, focusText };
     setSentenceCards((cards) => ({
       ...cards,
       [currentPage]: [
         ...(cards[currentPage] ?? []),
-        { avatar, parts: [textPart(text)] },
+        { avatar, parts: independentParts },
       ],
     }));
     setHasSeedSentence(true);
     setActiveSentenceIndexes((indexes) => ({ ...indexes, [currentPage]: nextIndex }));
+    setSelectedWord(null);
+    return true;
+  };
+
+  const addSentence = () => {
+    const text = hasSeedSentence
+      ? ""
+      : STARTER_SENTENCES[Math.floor(Math.random() * STARTER_SENTENCES.length)];
+    appendSentence([textPart(text)], true);
+  };
+
+  const closeSentenceLibrary = () => {
+    setIsSentenceLibraryOpen(false);
+    sentenceLibraryTrigger.current?.focus({ preventScroll: true });
+  };
+
+  const insertLibrarySentence = (entry) => {
+    if (appendSentence(entry.parts)) setIsSentenceLibraryOpen(false);
   };
 
   const partsFromElement = (index, element) => {
@@ -733,6 +758,51 @@ export default function App() {
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
     .filter((word) => word.includes(librarySearch.trim()));
   const managedSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
+  const visibleLibrarySentences = SENTENCE_LIBRARY.filter((entry) =>
+    (sentenceLibraryCategory === "全部" || entry.category === sentenceLibraryCategory)
+    && entry.parts.map((part) => part.value).join("").includes(sentenceLibrarySearch.trim()),
+  );
+
+  useLayoutEffect(() => {
+    const pending = pendingSentenceFocus.current;
+    if (!pending || pending.page !== currentPage) return;
+    const editor = sentenceAreaRef.current?.querySelector(`[data-sentence-index="${pending.index}"]`);
+    if (!editor) return;
+    pendingSentenceFocus.current = null;
+    editor.closest(".edit-sentence-card")?.scrollIntoView({ block: "nearest" });
+    if (!pending.focusText) return;
+    editor.focus({ preventScroll: true });
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [currentPage, currentSentenceCards]);
+
+  useEffect(() => {
+    if (!isSentenceLibraryOpen) return undefined;
+    sentenceLibraryClose.current?.focus({ preventScroll: true });
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeSentenceLibrary();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(sentenceLibrarySheet.current?.querySelectorAll("button, input") ?? []);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isSentenceLibraryOpen]);
 
   useLayoutEffect(() => {
     const area = sentenceAreaRef.current;
@@ -1118,15 +1188,28 @@ export default function App() {
           )})}
 
           {canAddSentence && (
-            <button className="add-sentence-button" type="button" onClick={addSentence}>
-              <img src={icon("add-sentence.svg")} alt="添加句子" />
-            </button>
+            <div className="add-sentence-actions">
+              <button className="add-sentence-button" type="button" aria-label="添加句子" title="自己写一句" onClick={addSentence}>
+                <span aria-hidden="true">＋</span>
+              </button>
+              <button
+                ref={sentenceLibraryTrigger}
+                className="sentence-library-button"
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => {
+                  setSentenceLibrarySearch("");
+                  setSentenceLibraryCategory("全部");
+                  setIsSentenceLibraryOpen(true);
+                }}
+              >从句库添加</button>
+            </div>
           )}
 
           {!hasSentence && (
             <div className="sentence-empty-state">
               <p>写下你的第一句话</p>
-              <p>自己写下 · 或从卡组中抽取提示</p>
+              <p>点 ＋ 自己写 · 或从句库找灵感</p>
             </div>
           )}
 
@@ -1147,6 +1230,51 @@ export default function App() {
             alt=""
           />
         </button>
+
+        {isSentenceLibraryOpen && (
+          <div className="sentence-library-overlay" onClick={closeSentenceLibrary}>
+            <section
+              ref={sentenceLibrarySheet}
+              className="sentence-library-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="sentence-library-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="sentence-library-header">
+                <div>
+                  <h2 id="sentence-library-title">从句库添加</h2>
+                  <p>点一句，加入当前页</p>
+                </div>
+                <button ref={sentenceLibraryClose} type="button" aria-label="关闭句库" onClick={closeSentenceLibrary}>×</button>
+              </header>
+              <label
+                className="sentence-library-search"
+                style={{
+                  "--sentence-library-search-field": `url("${icon("search-field.svg")}")`,
+                  "--sentence-library-search-icon": `url("${icon("search.svg")}")`,
+                }}
+              >
+                <span className="sr-only">搜索句子</span>
+                <input value={sentenceLibrarySearch} onChange={(event) => setSentenceLibrarySearch(event.target.value)} placeholder="搜索句子…" />
+              </label>
+              <nav className="sentence-library-categories" aria-label="句子分类">
+                {WORD_CATEGORIES.map((category) => (
+                  <button key={category} type="button" className={sentenceLibraryCategory === category ? "is-selected" : ""} onClick={() => setSentenceLibraryCategory(category)}>{category}</button>
+                ))}
+              </nav>
+              <div className="sentence-library-list">
+                {visibleLibrarySentences.map((entry) => (
+                  <button key={entry.id} type="button" onClick={() => insertLibrarySentence(entry)}>
+                    <span className="sentence-library-preview">{entry.parts.map((part, index) => part.type === "blank" ? <i key={index} aria-label="留白" /> : <span key={index}>{part.value}</span>)}</span>
+                    <small>{entry.category}</small>
+                  </button>
+                ))}
+                {visibleLibrarySentences.length === 0 && <p className="sentence-library-empty">没有找到相关句子</p>}
+              </div>
+            </section>
+          </div>
+        )}
 
         {blankEditor && (
           <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="添加内容">
