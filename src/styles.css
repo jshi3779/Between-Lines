@@ -982,7 +982,14 @@ html, body, #root {
   font-size: 24px;
   line-height: 18px;
   cursor: pointer;
+  z-index: 3;
 }
+
+/* Without a title row the close button sits at the end of each panel's first row (centred on
+   the 31px input / 27px photo buttons), so that row leaves room for it. */
+.content-editor-sheet:not(.is-sentence) .content-sheet-close { top: 25px; }
+.word-mode > .word-entry,
+.photo-mode > .content-actions { margin-right: 28px; }
 
 .content-editor-title {
   flex-shrink: 0;
@@ -1138,7 +1145,7 @@ html, body, #root {
   border-radius: 0;
   background: transparent;
 }
-.content-actions button img { display: block; width: 100%; height: 100%; }
+.content-actions button img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .photo-mode {
   display: flex;
   min-height: 0;

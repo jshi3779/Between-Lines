@@ -1620,10 +1620,7 @@ export default function App({ initialTitle, onExit }) {
                 <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
               </div>
               <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => { setBlankEditor(null); setSentencePicker(null); }}>×</button>
-              {/* Word/photo/audio keep the header row empty so the content clears the close button. */}
-              {sheetMode === "sentence"
-                ? <h3 className="content-editor-title is-text">句卡库</h3>
-                : <div className="content-editor-title" aria-hidden="true" />}
+              {sheetMode === "sentence" && <h3 className="content-editor-title is-text">句卡库</h3>}
 
               <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
               {sheetMode === "sentence" && (
