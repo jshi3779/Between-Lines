@@ -436,6 +436,92 @@ html, body, #root {
   margin: 0;
 }
 
+/* The spread image is two pages wide; clipping to one page means a swipe reveals a gap
+   (and the neighbouring page) instead of the other half of the same spread. */
+.notebook-page.page-slide,
+.page-ghost .notebook-page {
+  overflow: hidden;
+}
+
+.notebook-page.page-slide {
+  transform: translateX(var(--page-shift, 0px));
+  touch-action: pan-y;
+}
+
+.notebook-page img.notebook-spread-image { user-select: none; }
+
+.page-ghost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(calc(var(--page-shift, 0px) + var(--ghost-offset)));
+}
+
+.app-screen.is-page-swiping { user-select: none; cursor: grabbing; }
+
+.app-screen.is-page-settling .page-slide,
+.app-screen.is-page-settling .sentence-area,
+.app-screen.is-page-settling .page-ghost,
+.app-screen.is-page-settling .page-add-indicator {
+  transition: transform 280ms cubic-bezier(.22, .8, .24, 1);
+}
+
+/* Sits centred in the gap between the last page and the incoming blank one (gap = 110px). */
+.page-add-indicator {
+  position: absolute;
+  top: 420px;
+  left: 430px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  transform: translateX(calc(var(--page-shift, 0px) - 50%));
+}
+
+.page-add-icon {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.page-add-icon img {
+  position: absolute;
+  inset: 0;
+  width: 56px;
+  height: 56px;
+  opacity: calc(.3 + var(--add-progress, 0) * .7);
+  transition: transform 160ms ease;
+}
+
+.page-add-ring {
+  position: absolute;
+  inset: -6px;
+  width: 68px;
+  height: 68px;
+  fill: none;
+  stroke: #242222;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--add-progress, 0) * 100);
+  transform: rotate(-90deg);
+  transition: opacity 160ms ease;
+}
+
+.page-add-indicator.is-armed .page-add-icon img { opacity: 1; transform: scale(1.06); }
+.page-add-indicator.is-armed .page-add-ring { opacity: 0; }
+
+.page-add-label {
+  color: #79746d;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.page-add-indicator.is-armed .page-add-label { color: #242222; }
+
 .notebook-page-left {
   left: 0;
 }
@@ -534,7 +620,8 @@ html, body, #root {
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% + var(--page-shift, 0px)));
+  touch-action: pan-y;
 }
 
 .sentence-area::-webkit-scrollbar { display: none; }
@@ -1383,27 +1470,6 @@ html, body, #root {
   top: 10px;
   width: 32px;
   height: 32px;
-}
-
-.add-page-button {
-  position: absolute;
-  right: 10px;
-  bottom: 30px;
-  z-index: 2;
-  width: 70px;
-  height: 70px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.add-page-button img {
-  display: block;
-  width: 70px;
-  height: 70px;
 }
 
 .sr-only {

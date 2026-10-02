@@ -1,7 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 
 const MAX_SENTENCE_CARDS = 5;
+const PAGE_WIDTH = 375;
+const PAGE_GAP = 24;
+// The add-page gap is wide enough to hold the indicator and its label; it is fully
+// revealed exactly when the pull reaches the threshold, so the ring completes as the gap opens.
+const ADD_PAGE_GAP = 110;
+const ADD_PAGE_THRESHOLD = 110;
+const PAGE_TURN_DISTANCE = 90;
+const PAGE_SETTLE_MS = 280;
+const PAGE_SWIPE_BLOCKERS = "button, input, textarea, [contenteditable='true'], .edit-sentence-card, .card-toolbar, .blank-word-card";
 const STARTER_SENTENCES = [
   "今晚，去格拉斯哥的末班车没有等我。",
   "你的字迹仍像一场雨。",
@@ -113,7 +123,6 @@ export default function App({ initialTitle, onExit }) {
   const [selectedWordCategory, setSelectedWordCategory] = useState("全部");
   const [wordSearch, setWordSearch] = useState("");
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
-  const [isAddPressed, setIsAddPressed] = useState(false);
   const [isPageOverviewOpen, setIsPageOverviewOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [manageSection, setManageSection] = useState("images");
@@ -142,7 +151,6 @@ export default function App({ initialTitle, onExit }) {
   const [canAddSentence, setCanAddSentence] = useState(true);
   const [sentenceLineCounts, setSentenceLineCounts] = useState({});
   const [sentenceContentHeights, setSentenceContentHeights] = useState({});
-  const releaseTimer = useRef(null);
   const blankId = useRef(5);
   const sentenceLibraryTrigger = useRef(null);
   const sentenceLibraryClose = useRef(null);
@@ -161,10 +169,14 @@ export default function App({ initialTitle, onExit }) {
   const audioRecorder = useRef(null);
   const audioUrls = useRef(new Set());
   const recordingStartedAt = useRef(0);
+  const appScreenRef = useRef(null);
+  const pageSwipe = useRef(null);
+  const suppressPageClick = useRef(false);
+  const [pageSwipeMode, setPageSwipeMode] = useState(null);
+  const [isAddPageArmed, setIsAddPageArmed] = useState(false);
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
 
   useEffect(() => () => {
-    clearTimeout(releaseTimer.current);
     photoUrls.current.forEach((url) => URL.revokeObjectURL(url));
     audioUrls.current.forEach((url) => URL.revokeObjectURL(url));
     audioRecorder.current?.stream?.getTracks().forEach((track) => track.stop());
@@ -275,14 +287,11 @@ export default function App({ initialTitle, onExit }) {
   };
 
   const addPage = () => {
-    setIsAddPressed(true);
     setPageCount((count) => {
       const nextPage = count + 1;
       setCurrentPage(nextPage);
       return nextPage;
     });
-    clearTimeout(releaseTimer.current);
-    releaseTimer.current = setTimeout(() => setIsAddPressed(false), 180);
   };
 
   const appendSentence = (parts, focusText = false) => {
@@ -883,11 +892,141 @@ export default function App({ initialTitle, onExit }) {
     };
   }, [currentPage, currentSentenceCards]);
 
+  const canSwipePages = !blankEditor && !selectedWord && !isSentenceLibraryOpen && !isManageOpen && !isPageOverviewOpen && !isShareOpen;
+  const ghostPage = pageSwipeMode === "prev" ? currentPage - 1 : currentPage + 1;
+  const ghostOffset = pageSwipeMode === "prev"
+    ? -(PAGE_WIDTH + PAGE_GAP)
+    : PAGE_WIDTH + (pageSwipeMode === "add" ? ADD_PAGE_GAP : PAGE_GAP);
+
+  // The drag offset is written straight to a CSS variable rather than React state so a
+  // pointermove doesn't re-render this whole editor; state only changes when the mode flips.
+  const setPageShift = (shift, progress = 0) => {
+    const screen = appScreenRef.current;
+    screen?.style.setProperty("--page-shift", `${shift}px`);
+    screen?.style.setProperty("--add-progress", String(progress));
+  };
+
+  const pageSwipeModeFor = (dx) => (dx < 0
+    ? (currentPage < pageCount ? "next" : "add")
+    : (currentPage > 1 ? "prev" : "edge"));
+
+  const finishPageSwipe = (target, commit) => {
+    const screen = appScreenRef.current;
+    screen.classList.remove("is-page-swiping");
+    screen.classList.add("is-page-settling");
+    setPageShift(target, target === 0 ? 0 : 1);
+    setTimeout(() => {
+      // flushSync so the new page's content is in the DOM before the offset snaps back
+      // to 0; otherwise the old page would flash at the centre for a frame.
+      flushSync(() => {
+        commit?.();
+        setPageSwipeMode(null);
+        setIsAddPageArmed(false);
+      });
+      screen.classList.remove("is-page-settling");
+      setPageShift(0);
+    }, PAGE_SETTLE_MS);
+  };
+
+  const handlePagePointerDown = (event) => {
+    if (!canSwipePages || pageSwipe.current || appScreenRef.current.classList.contains("is-page-settling")) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const { target } = event;
+    if (!(target instanceof Element) || target.closest(PAGE_SWIPE_BLOCKERS)) return;
+    if (!target.closest(".notebook-page, .sentence-area")) return;
+    pageSwipe.current = {
+      id: event.pointerId,
+      x0: event.clientX,
+      y0: event.clientY,
+      scale: appScreenRef.current.getBoundingClientRect().width / PAGE_WIDTH,
+      locked: false,
+      mode: null,
+      shift: 0,
+      armed: false,
+      samples: [[event.timeStamp, event.clientX]],
+    };
+  };
+
+  const handlePagePointerMove = (event) => {
+    const swipe = pageSwipe.current;
+    if (!swipe || swipe.id !== event.pointerId) return;
+    const dx = (event.clientX - swipe.x0) / swipe.scale;
+    const dy = (event.clientY - swipe.y0) / swipe.scale;
+    if (!swipe.locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        pageSwipe.current = null;
+        return;
+      }
+      swipe.locked = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      appScreenRef.current.classList.add("is-page-swiping");
+    }
+
+    const mode = pageSwipeModeFor(dx);
+    if (mode !== swipe.mode) {
+      swipe.mode = mode;
+      setPageSwipeMode(mode);
+    }
+
+    let shift = dx;
+    if (mode === "add") shift = -Math.min(170, -dx * 0.6);
+    else if (mode === "edge") shift = Math.min(70, dx * 0.25);
+    else shift = Math.max(-(PAGE_WIDTH + PAGE_GAP), Math.min(PAGE_WIDTH + PAGE_GAP, dx));
+    swipe.shift = shift;
+
+    const armed = mode === "add" && -shift >= ADD_PAGE_THRESHOLD;
+    if (armed !== swipe.armed) {
+      swipe.armed = armed;
+      setIsAddPageArmed(armed);
+    }
+    setPageShift(shift, mode === "add" ? Math.min(1, -shift / ADD_PAGE_THRESHOLD) : 0);
+
+    swipe.samples.push([event.timeStamp, event.clientX]);
+    while (swipe.samples.length > 2 && event.timeStamp - swipe.samples[0][0] > 100) swipe.samples.shift();
+  };
+
+  const handlePagePointerEnd = (event) => {
+    const swipe = pageSwipe.current;
+    if (!swipe || swipe.id !== event.pointerId) return;
+    pageSwipe.current = null;
+    if (!swipe.locked) return;
+    suppressPageClick.current = true;
+    setTimeout(() => { suppressPageClick.current = false; }, 0);
+
+    const [first] = swipe.samples;
+    const last = swipe.samples[swipe.samples.length - 1];
+    const elapsed = last[0] - first[0];
+    const velocity = elapsed > 8 ? (last[1] - first[1]) / elapsed / swipe.scale : 0;
+    const flung = (direction) => Math.sign(velocity) === direction && Math.abs(velocity) > 0.45 && Math.abs(swipe.shift) > 20;
+    const cancelled = event.type === "pointercancel";
+
+    if (!cancelled && swipe.mode === "add" && swipe.armed) {
+      finishPageSwipe(-(PAGE_WIDTH + ADD_PAGE_GAP), addPage);
+    } else if (!cancelled && swipe.mode === "next" && (swipe.shift < -PAGE_TURN_DISTANCE || flung(-1))) {
+      finishPageSwipe(-(PAGE_WIDTH + PAGE_GAP), () => setCurrentPage((page) => Math.min(pageCount, page + 1)));
+    } else if (!cancelled && swipe.mode === "prev" && (swipe.shift > PAGE_TURN_DISTANCE || flung(1))) {
+      finishPageSwipe(PAGE_WIDTH + PAGE_GAP, () => setCurrentPage((page) => Math.max(1, page - 1)));
+    } else {
+      finishPageSwipe(0);
+    }
+  };
+
   return (
     <main className="prototype-stage" aria-label="应用原型预览">
       <section
+        ref={appScreenRef}
         className="app-screen"
         aria-label="375 × 812 像素应用屏幕"
+        onPointerDown={handlePagePointerDown}
+        onPointerMove={handlePagePointerMove}
+        onPointerUp={handlePagePointerEnd}
+        onPointerCancel={handlePagePointerEnd}
+        onClickCapture={(event) => {
+          if (!suppressPageClick.current) return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
         style={{
           "--back-icon": `url("${icon("back.svg")}")`,
           "--blank-word-card-icon": `url("${icon("blank-word-card.svg")}")`,
@@ -1057,13 +1196,34 @@ export default function App({ initialTitle, onExit }) {
           ))}
         </div>
 
-        <main className={`notebook-page notebook-page-${currentPageSide} page-pattern-${pagePattern}`}>
+        <main className={`notebook-page page-slide notebook-page-${currentPageSide} page-pattern-${pagePattern}`}>
           <img
             className="notebook-spread-image"
             src={icon("notebook-spread.png")}
             alt={`第 ${currentPage} 页`}
+            draggable={false}
           />
         </main>
+
+        {pageSwipeMode && pageSwipeMode !== "edge" && (
+          <div className="page-ghost" style={{ "--ghost-offset": `${ghostOffset}px` }} aria-hidden="true">
+            <div className={`notebook-page notebook-page-${ghostPage % 2 === 1 ? "left" : "right"} page-pattern-${pagePattern}`}>
+              <img className="notebook-spread-image" src={icon("notebook-spread.png")} alt="" draggable={false} />
+            </div>
+          </div>
+        )}
+
+        {pageSwipeMode === "add" && (
+          <div className={`page-add-indicator${isAddPageArmed ? " is-armed" : ""}`} aria-hidden="true">
+            <span className="page-add-icon">
+              <svg className="page-add-ring" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="30" pathLength="100" />
+              </svg>
+              <img src={icon(isAddPageArmed ? "add-page-pressed.svg" : "add-page-default.svg")} alt="" draggable={false} />
+            </span>
+            <span className="page-add-label">{isAddPageArmed ? "松开以添加页面" : "拉动以添加页面"}</span>
+          </div>
+        )}
 
         <nav className="page-navigation" aria-label="页面导航">
           <button
@@ -1304,20 +1464,6 @@ export default function App({ initialTitle, onExit }) {
         </section>
 
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
-
-        <button
-          className="add-page-button"
-          type="button"
-          aria-label="添加页面"
-          onClick={addPage}
-          onPointerDown={() => setIsAddPressed(true)}
-          onPointerLeave={() => !releaseTimer.current && setIsAddPressed(false)}
-        >
-          <img
-            src={icon(isAddPressed ? "add-page-pressed.svg" : "add-page-default.svg")}
-            alt=""
-          />
-        </button>
 
         {isSentenceLibraryOpen && (
           <div className="sentence-library-overlay" onClick={closeSentenceLibrary}>
