@@ -819,7 +819,7 @@ html, body, #root {
 }
 
 .blank-word-card.photo-word-card {
-  width: 178.05px;
+  width: 118px; /* frame and photo are laid out in % of this, so the whole card scales together */
   min-width: 0;
   max-width: 100%;
   height: auto;
@@ -849,7 +849,7 @@ html, body, #root {
   max-width: 150px;
   height: 84.67%;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 7px;
   transform: translateX(-50%) rotate(5deg);
   transform-origin: center;
 }
