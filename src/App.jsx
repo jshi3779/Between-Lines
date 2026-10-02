@@ -28,6 +28,8 @@ const STARTER_SENTENCES = [
 ];
 const USER_ACCENT_COLORS = ["#f6be45", "#3465d6", "#1d9c6c", "#ec4e99"];
 const textPart = (value) => ({ type: "text", value });
+const CARET_ANCHOR = "​";
+const withoutCaretAnchor = (value) => value.replaceAll(CARET_ANCHOR, "");
 const GUIDE_SENTENCE_CARDS = [
   {
     avatar: 3,
@@ -364,13 +366,17 @@ export default function App({ initialTitle, onExit }) {
   const partsFromElement = (index, element) => {
     const existingParts = cardParts((sentenceCards[currentPage] ?? [])[index] ?? {});
     const parts = Array.from(element.childNodes).flatMap((node) => {
-      if (node.nodeType === Node.TEXT_NODE) return node.textContent ? [textPart(node.textContent)] : [];
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = withoutCaretAnchor(node.textContent);
+        return text ? [textPart(text)] : [];
+      }
       if (!(node instanceof HTMLElement)) return [];
       if (node.classList.contains("blank-word-card")) {
         const id = Number(node.dataset.blankId);
         return existingParts.find((part) => part.type === "blank" && part.id === id) ?? [];
       }
-      return node.textContent ? [textPart(node.textContent)] : [];
+      const text = withoutCaretAnchor(node.textContent);
+      return text ? [textPart(text)] : [];
     });
     const normalizedParts = parts.reduce((result, part) => {
       const previous = result.at(-1);
@@ -550,12 +556,16 @@ export default function App({ initialTitle, onExit }) {
     if (range.startContainer === element) {
       previous = element.childNodes[range.startOffset - 1];
     } else {
-      let topLevel = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentNode : range.startContainer;
-      while (topLevel?.parentNode !== element) topLevel = topLevel?.parentNode;
+      // Climb from the caret's own node: typed text is often a bare text node directly inside
+      // `element` (not wrapped in a span), and starting from its parent would climb past
+      // `element` to the document root and loop forever.
+      let topLevel = range.startContainer;
+      while (topLevel && topLevel.parentNode !== element) topLevel = topLevel.parentNode;
+      if (!topLevel) return null;
       const beforeCaret = document.createRange();
       beforeCaret.selectNodeContents(topLevel);
       beforeCaret.setEnd(range.startContainer, range.startOffset);
-      if (beforeCaret.toString().length === 0) previous = topLevel?.previousSibling;
+      if (withoutCaretAnchor(beforeCaret.toString()).length === 0) previous = topLevel?.previousSibling;
     }
     return previous instanceof HTMLElement && previous.classList.contains("blank-word-card") ? previous : null;
   };
@@ -603,7 +613,12 @@ export default function App({ initialTitle, onExit }) {
       sentence.focus();
       const selection = window.getSelection();
       const nextRange = document.createRange();
-      nextRange.setStartAfter(nextCard);
+      // A caret "after" a non-editable blank with no text behind it is snapped back by the
+      // browser into the text before the blank, so typing would land on the wrong side. Give
+      // it a zero-width space to sit in; CARET_ANCHOR is stripped when the sentence is read.
+      if (!(nextCard.nextSibling instanceof Text)) nextCard.after(document.createTextNode(CARET_ANCHOR));
+      const anchor = nextCard.nextSibling;
+      nextRange.setStart(anchor, anchor.textContent.startsWith(CARET_ANCHOR) ? 1 : 0);
       nextRange.collapse(true);
       selection.removeAllRanges();
       selection.addRange(nextRange);
