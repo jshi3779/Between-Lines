@@ -990,14 +990,6 @@ html, body, #root {
   margin: 0 0 14px;
 }
 
-.content-editor-title img {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 41px;
-  max-height: 24px;
-}
-
 .content-editor-mode { width: 100%; }
 
 .content-editor-scroll {

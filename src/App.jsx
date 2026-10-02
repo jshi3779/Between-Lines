@@ -1605,7 +1605,7 @@ export default function App({ initialTitle, onExit }) {
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
 
         {(blankEditor || sentencePicker) && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={sentencePicker ? "句卡库" : "添加内容"}>
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={{ sentence: "句卡库", word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}>
             <section
               ref={editorSheetRef}
               className={`content-editor-sheet is-${sheetMode}`}
@@ -1620,14 +1620,10 @@ export default function App({ initialTitle, onExit }) {
                 <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
               </div>
               <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => { setBlankEditor(null); setSentencePicker(null); }}>×</button>
-              <h3 className={`content-editor-title${sheetMode === "sentence" ? " is-text" : ""}`}>
-                {sheetMode === "sentence" ? "句卡库" : (
-                  <img
-                    src={icon(`content-tab-${sheetMode}-selected.svg`)}
-                    alt={{ word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}
-                  />
-                )}
-              </h3>
+              {/* Word/photo/audio keep the header row empty so the content clears the close button. */}
+              {sheetMode === "sentence"
+                ? <h3 className="content-editor-title is-text">句卡库</h3>
+                : <div className="content-editor-title" aria-hidden="true" />}
 
               <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
               {sheetMode === "sentence" && (

@@ -72,7 +72,6 @@
 - 导航与页面素材：语义化英文名，例如 `back.svg`、`invite.svg`、`left-page.svg`。
 - 用户头像：`user-1.svg` 至 `user-4.svg`。
 - 用户标签：`user-label-1.svg` 至 `user-label-4.svg`。
-- 内容模式状态：`content-tab-{word|photo|audio}-{default|selected}.svg`。
 
 ## 9. 验收重点
 
