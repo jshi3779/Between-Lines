@@ -606,7 +606,7 @@ html, body, #root {
   left: 50%;
   z-index: 1;
   width: 369px;
-  max-height: 545px;
+  max-height: 586px; /* down to just above the page's bottom rule; matches SENTENCE_AREA_HEIGHT */
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
@@ -645,7 +645,7 @@ html, body, #root {
   max-width: 369px;
   min-height: var(--sentence-card-height, 100px);
   height: var(--sentence-card-height, 100px);
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   padding: 10px;
   overflow: visible;
   border-radius: 24px;

@@ -2,7 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 
-const MAX_SENTENCE_CARDS = 5;
+// A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
+// the sentence area starts at y=190, so content may run to y=776.
+const SENTENCE_AREA_HEIGHT = 776 - 190;
+// 42px avatar + 10px padding top and bottom; each extra text line adds 30px.
+const SENTENCE_CARD_MIN_HEIGHT = 62;
+const SENTENCE_CARD_GAP = 4;
 const PAGE_WIDTH = 375;
 const PAGE_GAP = 24;
 // The add-page gap is wide enough to hold the indicator and its label; it is fully
@@ -197,6 +202,8 @@ export default function App({ initialTitle, onExit }) {
   const [initialTitleText] = useState(initialTitle || "无标题");
   const [notebookTitle, setNotebookTitle] = useState(initialTitleText);
   const [toolbarPosition, setToolbarPosition] = useState(null);
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [canAddSentence, setCanAddSentence] = useState(true);
   const [pageSwipeMode, setPageSwipeMode] = useState(null);
   const [isAddPageArmed, setIsAddPageArmed] = useState(false);
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
@@ -803,8 +810,6 @@ export default function App({ initialTitle, onExit }) {
 
   const currentSentenceCards = sentenceCards[currentPage] ?? [];
   const hasSentence = currentSentenceCards.length > 0;
-  // Only the card count limits a page; taller content just scrolls inside the sentence area.
-  const canAddSentence = currentSentenceCards.length < MAX_SENTENCE_CARDS;
   const activeSentenceIndex = activeSentenceIndexes[currentPage];
   const visibleLibraryWords = WORD_LIBRARY.filter(({ word, category }) =>
     (selectedWordCategory === "全部" || category === selectedWordCategory)
@@ -906,6 +911,23 @@ export default function App({ initialTitle, onExit }) {
     setToolbarPosition((previous) => (previous && next && previous.top === next.top && previous.left === next.left && previous.placement === next.placement ? previous : next));
   };
 
+  useEffect(() => setIsEditingCard(false), [currentPage]);
+
+  // Cards grow as text wraps or photos/audio are dropped in, so re-measure on resize too.
+  useLayoutEffect(() => {
+    const area = sentenceAreaRef.current;
+    if (!area) return undefined;
+    const measure = () => {
+      const cards = Array.from(area.querySelectorAll(":scope > .edit-sentence-card"));
+      const usedHeight = cards.reduce((total, card) => total + card.offsetHeight + SENTENCE_CARD_GAP, 0);
+      setCanAddSentence(usedHeight + SENTENCE_CARD_MIN_HEIGHT + SENTENCE_CARD_GAP <= SENTENCE_AREA_HEIGHT);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    area.querySelectorAll(":scope > .edit-sentence-card").forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, [currentPage, currentSentenceCards]);
+
   useLayoutEffect(placeCardToolbar, [activeSentenceIndex, currentPage, currentSentenceCards, sentenceLineCounts, sentenceContentHeights]);
 
   const pageSwipeModeFor = (dx) => (dx < 0
@@ -931,6 +953,11 @@ export default function App({ initialTitle, onExit }) {
   };
 
   const handlePagePointerDown = (event) => {
+    // The toolbar belongs to an editing session: any tap outside the cards, the toolbar itself
+    // and the content panel it opens puts it away until a card is tapped again.
+    if (event.target instanceof Element && !event.target.closest(".edit-sentence-card, .card-toolbar, .blank-word-dialog")) {
+      setIsEditingCard(false);
+    }
     if (!canSwipePages || pageSwipe.current || appScreenRef.current.classList.contains("is-page-settling")) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     const { target } = event;
@@ -1249,7 +1276,7 @@ export default function App({ initialTitle, onExit }) {
             const visualLines = sentenceLineCounts[`${currentPage}-${index}`] ?? 1;
             const assetLines = Math.min(3, visualLines);
             const contentHeight = sentenceContentHeights[`${currentPage}-${index}`] ?? 22;
-            const cardHeight = visualLines > 3 ? Math.max(62, contentHeight + 20) : 70 + (visualLines - 1) * 30;
+            const cardHeight = visualLines > 3 ? Math.max(SENTENCE_CARD_MIN_HEIGHT, contentHeight + 20) : SENTENCE_CARD_MIN_HEIGHT + (visualLines - 1) * 30;
             return (
             <div
               className={`edit-sentence-card sentence-lines-${assetLines}${visualLines > 3 ? " is-extended" : ""}${activeSentenceIndex === index ? " is-active" : ""}`}
@@ -1260,6 +1287,7 @@ export default function App({ initialTitle, onExit }) {
               onClick={(event) => {
                 if (suppressSentenceClick.current) return;
                 setActiveSentenceIndexes((indexes) => indexes[currentPage] === index ? indexes : { ...indexes, [currentPage]: index });
+                setIsEditingCard(true);
                 if (!event.target.closest(".blank-word-card, .delete-word-button")) {
                   event.currentTarget.querySelector(".sentence-text")?.focus();
                 }
@@ -1311,6 +1339,7 @@ export default function App({ initialTitle, onExit }) {
                   aria-label={`编辑第 ${index + 1} 个句子`}
                   onFocus={() => {
                     setActiveSentenceIndexes((indexes) => indexes[currentPage] === index ? indexes : { ...indexes, [currentPage]: index });
+                    setIsEditingCard(true);
                   }}
                   onBeforeInput={(event) => {
                     if (event.nativeEvent.inputType === "insertParagraph") event.preventDefault();
@@ -1392,7 +1421,7 @@ export default function App({ initialTitle, onExit }) {
 
         </section>
 
-        {hasSentence && toolbarPosition && (
+        {hasSentence && isEditingCard && toolbarPosition && (
           <nav
             className={`card-toolbar is-${toolbarPosition.placement}`}
             style={{ top: toolbarPosition.top, left: toolbarPosition.left }}
