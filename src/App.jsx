@@ -634,7 +634,9 @@ export default function App({ initialTitle, onExit }) {
     const id = blankId.current;
     setSentencePicker(null);
     setEditorMode(mode);
-    setBlankEditor({ page: currentPage, index, id, value: "" });
+    // Opened from a toolbar button for one content type, so no type tabs; tapping an existing
+    // blank card leaves `single` unset and the panel offers word/photo/audio tabs.
+    setBlankEditor({ page: currentPage, index, id, value: "", single: true });
   };
 
   const openSentencePicker = () => {
@@ -893,6 +895,7 @@ export default function App({ initialTitle, onExit }) {
   const writtenSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
   const sentenceLibrary = [...new Set([...SENTENCE_LIBRARY, ...writtenSentences])];
   const sheetMode = sentencePicker ? "sentence" : editorMode;
+  const showTypeTabs = Boolean(blankEditor && !blankEditor.single);
 
   useLayoutEffect(() => {
     const pending = pendingSentenceFocus.current;
@@ -1608,7 +1611,7 @@ export default function App({ initialTitle, onExit }) {
           <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={{ sentence: "句卡库", word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}>
             <section
               ref={editorSheetRef}
-              className={`content-editor-sheet is-${sheetMode}`}
+              className={`content-editor-sheet is-${sheetMode}${showTypeTabs ? " has-tabs" : ""}`}
               data-placement={editorPosition.placement}
               style={{ left: editorPosition.left, top: editorPosition.top, "--editor-pointer-left": `${editorPosition.pointerLeft}px` }}
               onClick={(event) => event.stopPropagation()}
@@ -1621,6 +1624,24 @@ export default function App({ initialTitle, onExit }) {
               </div>
               <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => { setBlankEditor(null); setSentencePicker(null); }}>×</button>
               {sheetMode === "sentence" && <h3 className="content-editor-title is-text">句卡库</h3>}
+              {showTypeTabs && (
+                <nav className="content-editor-tabs" aria-label="内容类型">
+                  {["word", "photo", "audio"].map((mode) => (
+                    <button
+                      className={editorMode === mode ? "is-selected" : ""}
+                      key={mode}
+                      type="button"
+                      aria-pressed={editorMode === mode}
+                      onClick={() => setEditorMode(mode)}
+                    >
+                      <img
+                        src={icon(`content-tab-${mode}-${editorMode === mode ? "selected" : "default"}.svg`)}
+                        alt={{ word: "词卡", photo: "图片", audio: "音频" }[mode]}
+                      />
+                    </button>
+                  ))}
+                </nav>
+              )}
 
               <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
               {sheetMode === "sentence" && (
