@@ -911,22 +911,67 @@ export default function App({ initialTitle, onExit }) {
     setToolbarPosition((previous) => (previous && next && previous.top === next.top && previous.left === next.left && previous.placement === next.placement ? previous : next));
   };
 
-  useEffect(() => setIsEditingCard(false), [currentPage]);
+  // Cards from the first one that crosses the page's bottom rule move to the front of the next
+  // page (created if needed). Only a card the user is typing in is synced from the DOM first —
+  // re-keying any other focused card would reset its caret mid-typing. If the typed-in card is
+  // among those moving, the view and caret follow it, like text reflowing to a new page.
+  const moveOverflowToNextPage = (fromIndex) => {
+    const page = currentPage;
+    const area = sentenceAreaRef.current;
+    const focused = document.activeElement?.closest?.(".sentence-text");
+    const focusedIndex = focused && area?.contains(focused) ? Number(focused.dataset.sentenceIndex) : null;
+    const followFocus = focusedIndex != null && focusedIndex >= fromIndex;
+    const focusedParts = followFocus ? partsFromElement(focusedIndex, focused) : null;
+    const blurKey = `${page}-${focusedIndex}`;
+    if (followFocus) skipSentenceBlur.current.add(blurKey);
+    flushSync(() => {
+      setSentenceCards((all) => {
+        const cards = (all[page] ?? []).map((card, index) => (index === focusedIndex && focusedParts ? { ...card, parts: focusedParts } : card));
+        return { ...all, [page]: cards.slice(0, fromIndex), [page + 1]: [...cards.slice(fromIndex), ...(all[page + 1] ?? [])] };
+      });
+      setPageCount((count) => Math.max(count, page + 1));
+      if (followFocus) {
+        const index = focusedIndex - fromIndex;
+        pendingSentenceFocus.current = { page: page + 1, index, focusText: true };
+        setActiveSentenceIndexes((indexes) => ({ ...indexes, [page + 1]: index }));
+        setCurrentPage(page + 1);
+      }
+    });
+    // The moved editor may or may not have fired blur on removal; either way the stale handler
+    // must not write into whatever card now sits at its old page/index.
+    skipSentenceBlur.current.delete(blurKey);
+  };
 
   // Cards grow as text wraps or photos/audio are dropped in, so re-measure on resize too.
   useLayoutEffect(() => {
     const area = sentenceAreaRef.current;
     if (!area) return undefined;
+    let overflowTimer = 0;
     const measure = () => {
       const cards = Array.from(area.querySelectorAll(":scope > .edit-sentence-card"));
-      const usedHeight = cards.reduce((total, card) => total + card.offsetHeight + SENTENCE_CARD_GAP, 0);
-      setCanAddSentence(usedHeight + SENTENCE_CARD_MIN_HEIGHT + SENTENCE_CARD_GAP <= SENTENCE_AREA_HEIGHT);
+      let usedHeight = 0;
+      let firstOverflow = -1;
+      cards.forEach((card, index) => {
+        usedHeight += card.offsetHeight + SENTENCE_CARD_GAP;
+        // The first card never moves: one taller than a whole page would overflow anywhere.
+        if (firstOverflow < 0 && index > 0 && usedHeight - SENTENCE_CARD_GAP > SENTENCE_AREA_HEIGHT) firstOverflow = index;
+      });
+      setCanAddSentence(firstOverflow < 0 && usedHeight + SENTENCE_CARD_MIN_HEIGHT + SENTENCE_CARD_GAP <= SENTENCE_AREA_HEIGHT);
+      // Defer the move: it uses flushSync, which can't run inside this layout effect, and an
+      // open content panel or a drag still points at the card's current page/index.
+      clearTimeout(overflowTimer);
+      if (firstOverflow > 0 && !blankEditor && draggedSentence.current == null) {
+        overflowTimer = setTimeout(() => moveOverflowToNextPage(firstOverflow), 0);
+      }
     };
     measure();
     const observer = new ResizeObserver(measure);
     area.querySelectorAll(":scope > .edit-sentence-card").forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
-  }, [currentPage, currentSentenceCards]);
+    return () => {
+      clearTimeout(overflowTimer);
+      observer.disconnect();
+    };
+  }, [currentPage, currentSentenceCards, blankEditor]);
 
   useLayoutEffect(placeCardToolbar, [activeSentenceIndex, currentPage, currentSentenceCards, sentenceLineCounts, sentenceContentHeights]);
 
