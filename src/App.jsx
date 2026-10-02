@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
+import { WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 
 const MAX_SENTENCE_CARDS = 5;
 const PAGE_WIDTH = 375;
@@ -64,9 +64,9 @@ const icon = (file) => `${import.meta.env.BASE_URL}icons/${file}`;
 const SAMPLE_PHOTOS = [{
   id: "default-photo",
   name: "格拉斯哥艺术学院",
-  url: icon("default-photo.png"),
+  url: icon("default-photo.webp"),
 }];
-const MANAGE_THUMBNAILS = Array.from({ length: 12 }, (_, index) => icon(`manage-thumb-${String(index + 1).padStart(2, "0")}.png`));
+const MANAGE_THUMBNAILS = Array.from({ length: 12 }, (_, index) => icon(`manage-thumb-${String(index + 1).padStart(2, "0")}.webp`));
 const MANAGE_LIBRARY_PHOTOS = MANAGE_THUMBNAILS.map((url, index) => ({ id: `library-photo-${index + 1}`, name: `素材 ${index + 1}`, url }));
 
 export default function App({ initialTitle, onExit }) {
@@ -76,9 +76,6 @@ export default function App({ initialTitle, onExit }) {
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
-  const [isSentenceLibraryOpen, setIsSentenceLibraryOpen] = useState(false);
-  const [sentenceLibraryCategory, setSentenceLibraryCategory] = useState("全部");
-  const [sentenceLibrarySearch, setSentenceLibrarySearch] = useState("");
   const [editorMode, setEditorMode] = useState("word");
   const [editorPosition, setEditorPosition] = useState({ left: 30, top: 200, pointerLeft: 130, placement: "below" });
   const editorSheetRef = useRef(null);
@@ -152,9 +149,6 @@ export default function App({ initialTitle, onExit }) {
   const [sentenceLineCounts, setSentenceLineCounts] = useState({});
   const [sentenceContentHeights, setSentenceContentHeights] = useState({});
   const blankId = useRef(5);
-  const sentenceLibraryTrigger = useRef(null);
-  const sentenceLibraryClose = useRef(null);
-  const sentenceLibrarySheet = useRef(null);
   const pendingSentenceFocus = useRef(null);
   const dialogInput = useRef(null);
   const skipSentenceBlur = useRef(new Set());
@@ -320,15 +314,6 @@ export default function App({ initialTitle, onExit }) {
       ? ""
       : STARTER_SENTENCES[Math.floor(Math.random() * STARTER_SENTENCES.length)];
     appendSentence([textPart(text)], true);
-  };
-
-  const closeSentenceLibrary = () => {
-    setIsSentenceLibraryOpen(false);
-    sentenceLibraryTrigger.current?.focus({ preventScroll: true });
-  };
-
-  const insertLibrarySentence = (entry) => {
-    if (appendSentence(entry.parts)) setIsSentenceLibraryOpen(false);
   };
 
   const partsFromElement = (index, element) => {
@@ -796,10 +781,6 @@ export default function App({ initialTitle, onExit }) {
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
     .filter((word) => word.includes(librarySearch.trim()));
   const managedSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
-  const visibleLibrarySentences = SENTENCE_LIBRARY.filter((entry) =>
-    (sentenceLibraryCategory === "全部" || entry.category === sentenceLibraryCategory)
-    && entry.parts.map((part) => part.value).join("").includes(sentenceLibrarySearch.trim()),
-  );
 
   useLayoutEffect(() => {
     const pending = pendingSentenceFocus.current;
@@ -817,30 +798,6 @@ export default function App({ initialTitle, onExit }) {
     selection?.removeAllRanges();
     selection?.addRange(range);
   }, [currentPage, currentSentenceCards]);
-
-  useEffect(() => {
-    if (!isSentenceLibraryOpen) return undefined;
-    sentenceLibraryClose.current?.focus({ preventScroll: true });
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        closeSentenceLibrary();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const controls = Array.from(sentenceLibrarySheet.current?.querySelectorAll("button, input") ?? []);
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isSentenceLibraryOpen]);
 
   useLayoutEffect(() => {
     const area = sentenceAreaRef.current;
@@ -892,7 +849,7 @@ export default function App({ initialTitle, onExit }) {
     };
   }, [currentPage, currentSentenceCards]);
 
-  const canSwipePages = !blankEditor && !selectedWord && !isSentenceLibraryOpen && !isManageOpen && !isPageOverviewOpen && !isShareOpen;
+  const canSwipePages = !blankEditor && !selectedWord && !isManageOpen && !isPageOverviewOpen && !isShareOpen;
   const ghostPage = pageSwipeMode === "prev" ? currentPage - 1 : currentPage + 1;
   const ghostOffset = pageSwipeMode === "prev"
     ? -(PAGE_WIDTH + PAGE_GAP)
@@ -1199,7 +1156,7 @@ export default function App({ initialTitle, onExit }) {
         <main className={`notebook-page page-slide notebook-page-${currentPageSide} page-pattern-${pagePattern}`}>
           <img
             className="notebook-spread-image"
-            src={icon("notebook-spread.png")}
+            src={icon("notebook-spread.webp")}
             alt={`第 ${currentPage} 页`}
             draggable={false}
           />
@@ -1208,7 +1165,7 @@ export default function App({ initialTitle, onExit }) {
         {pageSwipeMode && pageSwipeMode !== "edge" && (
           <div className="page-ghost" style={{ "--ghost-offset": `${ghostOffset}px` }} aria-hidden="true">
             <div className={`notebook-page notebook-page-${ghostPage % 2 === 1 ? "left" : "right"} page-pattern-${pagePattern}`}>
-              <img className="notebook-spread-image" src={icon("notebook-spread.png")} alt="" draggable={false} />
+              <img className="notebook-spread-image" src={icon("notebook-spread.webp")} alt="" draggable={false} />
             </div>
           </div>
         )}
@@ -1375,25 +1332,12 @@ export default function App({ initialTitle, onExit }) {
           )})}
 
           {canAddSentence && (
-            <div className="add-sentence-actions">
-              <button className="add-sentence-button" type="button" aria-label="添加句子" title="自己写一句" onClick={addSentence}>
-                <span aria-hidden="true">＋</span>
-              </button>
-              <button
-                ref={sentenceLibraryTrigger}
-                className="sentence-library-button"
-                type="button"
-                aria-haspopup="dialog"
-                onClick={() => {
-                  setSentenceLibrarySearch("");
-                  setSentenceLibraryCategory("全部");
-                  setIsSentenceLibraryOpen(true);
-                }}
-              >从句库添加</button>
-            </div>
+            <button className="add-sentence-button" type="button" onClick={addSentence}>
+              <img src={icon("add-sentence.svg")} alt="添加句子" />
+            </button>
           )}
 
-          {hasSentence && !isSentenceLibraryOpen && (
+          {hasSentence && (
             <nav className="card-toolbar" aria-label="添加内容">
               <button
                 type="button"
@@ -1455,62 +1399,13 @@ export default function App({ initialTitle, onExit }) {
           {!hasSentence && (
             <div className="sentence-empty-state">
               <p>写下你的第一句话</p>
-              <p>点 ＋ 自己写 · 或从句库找灵感</p>
+              <p>点 ＋ 写下一句</p>
             </div>
           )}
 
         </section>
 
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
-
-        {isSentenceLibraryOpen && (
-          <div className="sentence-library-overlay" onClick={closeSentenceLibrary}>
-            <section
-              ref={sentenceLibrarySheet}
-              className="sentence-library-sheet"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="sentence-library-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="content-editor-sheet-background" aria-hidden="true">
-                <img className="panel-top" src={icon("panel-top.svg")} alt="" />
-                <img className="panel-middle" src={icon("panel-middle.svg")} alt="" />
-                <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
-              </div>
-              <header className="sentence-library-header">
-                <div>
-                  <h2 id="sentence-library-title">从句库添加</h2>
-                </div>
-                <button ref={sentenceLibraryClose} type="button" aria-label="关闭句库" onClick={closeSentenceLibrary}>×</button>
-              </header>
-              <label
-                className="sentence-library-search"
-                style={{
-                  "--sentence-library-search-field": `url("${icon("search-field.svg")}")`,
-                  "--sentence-library-search-icon": `url("${icon("search.svg")}")`,
-                }}
-              >
-                <span className="sr-only">搜索句子</span>
-                <input value={sentenceLibrarySearch} onChange={(event) => setSentenceLibrarySearch(event.target.value)} placeholder="搜索句子…" />
-              </label>
-              <nav className="sentence-library-categories" aria-label="句子分类">
-                {WORD_CATEGORIES.map((category) => (
-                  <button key={category} type="button" className={sentenceLibraryCategory === category ? "is-selected" : ""} onClick={() => setSentenceLibraryCategory(category)}>{category}</button>
-                ))}
-              </nav>
-              <div className="sentence-library-list">
-                {visibleLibrarySentences.map((entry) => (
-                  <button key={entry.id} type="button" className="sentence-library-card" onClick={() => insertLibrarySentence(entry)}>
-                    <span className="sentence-library-preview" data-lines={Math.min(3, Math.max(1, Math.ceil(Array.from(entry.parts.map((part) => part.type === "blank" ? "　" : part.value).join("")).length / 15)))}>{entry.parts.map((part, index) => part.type === "blank" ? <i key={index} aria-label="留白" /> : <span key={index}>{part.value}</span>)}</span>
-                    <small>{entry.category}</small>
-                  </button>
-                ))}
-                {visibleLibrarySentences.length === 0 && <p className="sentence-library-empty">没有找到相关句子</p>}
-              </div>
-            </section>
-          </div>
-        )}
 
         {blankEditor && (
           <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="添加内容">
