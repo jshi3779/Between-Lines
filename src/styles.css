@@ -1313,9 +1313,9 @@ html, body, #root {
   bottom: 34px;
   z-index: 2;
   display: flex;
-  height: 56px;
+  height: 62px;
   padding: 0 4px;
-  border-radius: 28px;
+  border-radius: 31px;
   background: #fbfaf6;
   box-shadow: 0 10px 24px rgb(0 0 0 / 14%);
 }
@@ -1341,17 +1341,48 @@ html, body, #root {
 .card-toolbar-button:not(:disabled):focus-visible { color: #242222; }
 .card-toolbar-button:focus-visible { outline: 2px solid #3465d6; outline-offset: 2px; border-radius: 12px; }
 
+/* Icons reuse the 51px brush-disc family from the manage tabs, drawn at full size and scaled
+   down, so the brush texture matches the FAB and manage screen instead of being re-traced. */
 .card-toolbar-icon {
+  position: relative;
   display: block;
-  height: 15px;
+  flex: none;
+  width: 30px;
+  height: 30px;
 }
 
-.card-toolbar-icon-sentence {
-  display: grid;
-  place-items: center;
-  height: 15px;
-  font-size: 18px;
-  line-height: 1;
+.card-toolbar-disc {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 51px;
+  height: 51px;
+  transform: scale(calc(30 / 51));
+  transform-origin: 0 0;
+}
+
+.card-toolbar-disc img { display: block; max-width: none; }
+
+.card-toolbar-disc-full {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.card-toolbar-disc-base {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  transform: rotate(90deg);
+}
+
+.card-toolbar-disc-glyph {
+  position: absolute;
+  left: 9.5px;
+  top: 10px;
+  width: 32px;
+  height: 32px;
 }
 
 .add-page-button {

@@ -1244,7 +1244,15 @@ export default function App({ initialTitle, onExit }) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={addSentence}
               >
-                <span className="card-toolbar-icon card-toolbar-icon-sentence" aria-hidden="true">＋</span>
+                <span className="card-toolbar-icon" aria-hidden="true">
+                  <span className="card-toolbar-disc">
+                    <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
+                    <svg className="card-toolbar-disc-glyph" viewBox="0 0 32 32" fill="none" stroke="#FDFDFB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6.2 8.6c6.6-.4 13.2-.5 19.7-.2.5 4.8.4 9.7.1 14.6-6.6.4-13.2.4-19.8.1-.4-4.8-.4-9.7 0-14.5Z" />
+                      <path d="M10 13.2h12M10 17.2h8.4" />
+                    </svg>
+                  </span>
+                </span>
                 <span>句卡</span>
               </button>
               <button
@@ -1253,7 +1261,9 @@ export default function App({ initialTitle, onExit }) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => insertIntoActiveSentence("word")}
               >
-                <img className="card-toolbar-icon" src={icon("content-tab-word-default.svg")} alt="" />
+                <span className="card-toolbar-icon" aria-hidden="true">
+                  <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-cards.svg")} alt="" /></span>
+                </span>
                 <span>词卡</span>
               </button>
               <button
@@ -1262,7 +1272,12 @@ export default function App({ initialTitle, onExit }) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => insertIntoActiveSentence("photo")}
               >
-                <img className="card-toolbar-icon" src={icon("content-tab-photo-default.svg")} alt="" />
+                <span className="card-toolbar-icon" aria-hidden="true">
+                  <span className="card-toolbar-disc">
+                    <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
+                    <img className="card-toolbar-disc-glyph" src={icon("library-tab-image-icon.svg")} alt="" />
+                  </span>
+                </span>
                 <span>图片</span>
               </button>
               <button
@@ -1271,7 +1286,9 @@ export default function App({ initialTitle, onExit }) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => insertIntoActiveSentence("audio")}
               >
-                <img className="card-toolbar-icon" src={icon("content-tab-audio-default.svg")} alt="" />
+                <span className="card-toolbar-icon" aria-hidden="true">
+                  <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-audio.svg")} alt="" /></span>
+                </span>
                 <span>音频</span>
               </button>
             </nav>
