@@ -35,18 +35,8 @@
 body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
   -webkit-font-smoothing:antialiased;
   background-image:radial-gradient(circle at 1px 1px,var(--stage-grid) 1px,transparent 0);background-size:26px 26px;}
-.stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px 16px}
-.stage-head{text-align:center;max-width:420px}
-.stage-head h1{font-family:var(--marker);font-weight:400;font-size:21px;letter-spacing:.5px;margin:0 0 4px}
-.stage-head p{margin:0;font-size:12.5px;line-height:1.55;color:var(--stage-mute)}
-
-.fit{position:relative;flex:0 0 auto}
-.phone{position:absolute;left:0;top:0;width:397px;height:834px;border-radius:46px;background:#0c0c0d;padding:11px;
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.55),0 0 0 2px rgba(0,0,0,.35),inset 0 0 0 2px #222;transform-origin:0 0}
-.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:26px;background:#0c0c0d;border-radius:0 0 18px 18px;z-index:60}
-
-/* 375 x 812 screen, coordinates follow the Figma frame */
-.screen{position:relative;width:375px;height:812px;border-radius:35px;overflow:hidden;background:#ececea;
+/* 375 x 812 screen, coordinates follow the Figma frame; sized and scaled by .app-screen like the editor */
+.screen{position:relative;width:375px;height:812px;overflow:hidden;background:#ececea;
   user-select:none;-webkit-user-select:none}
 .screen{touch-action:pan-y}
 .screen img{-webkit-user-drag:none;user-drag:none}

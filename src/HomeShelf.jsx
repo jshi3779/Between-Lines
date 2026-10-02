@@ -467,14 +467,6 @@ function initShelf(onOpenNotebookRef, signal) {
     navEl.appendChild(b); return b;
   });
 
-  /* fit the 397 x 834 device into the viewport */
-  function fit() {
-    const s = Math.min(1, (window.innerHeight - 110) / 834, (window.innerWidth - 24) / 397);
-    $('phone').style.transform = `scale(${s})`;
-    $('fit').style.width = (397 * s) + 'px'; $('fit').style.height = (834 * s) + 'px';
-  }
-  window.addEventListener('resize', fit, { signal }); fit();
-
   return { TOP, BOTTOM, extraShelves, extraNodes, navEl, modalRoot, getToastTimer: () => toastT };
 }
 
@@ -500,33 +492,24 @@ export default function HomeShelf({ onOpenNotebook }) {
   }, []);
 
   return (
-    <div className="stage">
-      <div className="stage-head">
-        <h1>Between Lines · 主页</h1>
-        <p>上下两层书架各自独立：点击书脊，或在书架上按住左右拖动，书会一边走一边绕左边缘转开；松手带惯性并停在某一本上。也可用 ← → 键（作用于最近操作的那层）。</p>
-      </div>
-      <div className="fit" id="fit">
-        <div className="phone" id="phone">
-          <div className="notch"></div>
-          <div className="screen" id="screen">
-            <div id="shelvesWrap">
-              <div id="shelvesInner">
-                <img className="abs" id="line2" alt="" />
-                <div id="row2"></div>
-                <img className="abs" id="line1" alt="" />
-                <div id="row"></div>
-              </div>
-            </div>
-            <div className="hdrBack"></div>
-            <img className="abs" id="title" alt="Between Lines — My Notebooks" />
-            <button className="abs" id="bell" aria-label="Notifications"></button>
-            <div className="navBack"></div>
-            <div id="nav"></div>
-            <div className="toast" id="toast"></div>
-            <div id="modalRoot"></div>
+    <main className="prototype-stage" aria-label="书架">
+      <div className="screen app-screen" id="screen">
+        <div id="shelvesWrap">
+          <div id="shelvesInner">
+            <img className="abs" id="line2" alt="" />
+            <div id="row2"></div>
+            <img className="abs" id="line1" alt="" />
+            <div id="row"></div>
           </div>
         </div>
+        <div className="hdrBack"></div>
+        <img className="abs" id="title" alt="Between Lines — My Notebooks" />
+        <button className="abs" id="bell" aria-label="Notifications"></button>
+        <div className="navBack"></div>
+        <div id="nav"></div>
+        <div className="toast" id="toast"></div>
+        <div id="modalRoot"></div>
       </div>
-    </div>
+    </main>
   );
 }
