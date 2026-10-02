@@ -172,7 +172,6 @@ export default function App({ initialTitle, onExit }) {
   const [audioClips, setAudioClips] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingNotice, setRecordingNotice] = useState("");
-  const [canAddSentence, setCanAddSentence] = useState(true);
   const [sentenceLineCounts, setSentenceLineCounts] = useState({});
   const [sentenceContentHeights, setSentenceContentHeights] = useState({});
   const blankId = useRef(5);
@@ -321,7 +320,7 @@ export default function App({ initialTitle, onExit }) {
   };
 
   const appendSentence = (parts, focusText = false) => {
-    if (currentSentenceCards.length >= MAX_SENTENCE_CARDS || !canAddSentence) return false;
+    if (!canAddSentence) return false;
     const avatar = Math.floor(Math.random() * 4) + 1;
     const nextIndex = currentSentenceCards.length;
     const independentParts = parts.map((part) => part.type === "blank"
@@ -804,6 +803,8 @@ export default function App({ initialTitle, onExit }) {
 
   const currentSentenceCards = sentenceCards[currentPage] ?? [];
   const hasSentence = currentSentenceCards.length > 0;
+  // Only the card count limits a page; taller content just scrolls inside the sentence area.
+  const canAddSentence = currentSentenceCards.length < MAX_SENTENCE_CARDS;
   const activeSentenceIndex = activeSentenceIndexes[currentPage];
   const visibleLibraryWords = WORD_LIBRARY.filter(({ word, category }) =>
     (selectedWordCategory === "全部" || category === selectedWordCategory)
@@ -830,27 +831,6 @@ export default function App({ initialTitle, onExit }) {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
-  }, [currentPage, currentSentenceCards]);
-
-  useLayoutEffect(() => {
-    const area = sentenceAreaRef.current;
-    if (!area) return;
-    const measure = () => {
-      const cards = Array.from(area.querySelectorAll(":scope > .edit-sentence-card"));
-      const usedHeight = cards.reduce((total, card) => {
-        const style = window.getComputedStyle(card);
-        return total + card.offsetHeight + Number.parseFloat(style.marginBottom || 0);
-      }, 0);
-      const nextCardHeight = 110;
-      const addButtonHeight = 60;
-      const availableHeight = 545;
-      setCanAddSentence(cards.length < MAX_SENTENCE_CARDS && usedHeight + nextCardHeight + addButtonHeight <= availableHeight);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(area);
-    area.querySelectorAll(":scope > .edit-sentence-card").forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
   }, [currentPage, currentSentenceCards]);
 
   useLayoutEffect(() => {
@@ -1493,21 +1473,12 @@ export default function App({ initialTitle, onExit }) {
                 <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
               </div>
               <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => setBlankEditor(null)}>×</button>
-              <nav className="content-editor-tabs" aria-label="内容类型">
-                {["word", "photo", "audio"].map((mode) => (
-                  <button
-                    className={editorMode === mode ? "is-selected" : ""}
-                    key={mode}
-                    type="button"
-                    onClick={() => setEditorMode(mode)}
-                  >
-                    <img
-                      src={icon(`content-tab-${mode}-${editorMode === mode ? "selected" : "default"}.svg`)}
-                      alt={{ word: "词", photo: "图片", audio: "音频" }[mode]}
-                    />
-                  </button>
-                ))}
-              </nav>
+              <h3 className="content-editor-title">
+                <img
+                  src={icon(`content-tab-${editorMode}-selected.svg`)}
+                  alt={{ word: "词卡", photo: "图片", audio: "音频" }[editorMode]}
+                />
+              </h3>
 
               <div className={`content-editor-scroll${editorMode === "audio" ? " is-audio" : ""}`}>
               {editorMode === "word" && (
