@@ -134,3 +134,16 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(14px);background:#171a16;color:#fff;
   font-family:var(--marker);font-size:14px;padding:9px 18px;border-radius:20px;opacity:0;transition:.28s;pointer-events:none;z-index:80;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* notebook search: same card as the edit/delete dialogs, anchored under the header instead of centred */
+.searchBack{align-items:flex-start;padding-top:96px}
+.searchCard{width:315px;padding:14px}
+.searchInput{font-size:15px}
+.searchResults{display:flex;flex-direction:column;gap:2px;margin-top:10px;max-height:420px;overflow-y:auto}
+.searchHit{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:10px;background:transparent;
+  text-align:left;cursor:pointer;font-family:var(--marker);font-size:15px;color:#1d1c18}
+.searchHit:hover,.searchHit:focus-visible{background:#ece7da;outline:none}
+.searchHit i{flex:none;width:12px;height:22px;border-radius:3px}
+.searchHit span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.searchHit small{flex:none;font-size:11px;color:#8b867c}
+.searchEmpty{margin:14px 0 6px;text-align:center;color:#8b867c;font-size:13px}

@@ -275,7 +275,48 @@ function initShelf(onOpenNotebookRef, signal) {
 
   /* ---------- delete-confirm / edit-notebook modal (shared; only one can be open) ---------- */
   const modalRoot = $('modalRoot');
-  function closeModal() { modalRoot.innerHTML = ''; modalRoot.style.pointerEvents = 'none'; }
+  let onModalClose = null;                                   // e.g. un-press the search tab, however the modal is dismissed
+  function closeModal() {
+    modalRoot.innerHTML = ''; modalRoot.style.pointerEvents = 'none';
+    const done = onModalClose; onModalClose = null; if (done) done();
+  }
+
+  /* ---------- search: filter every notebook on every shelf by title; picking one opens it ---------- */
+  function allNotebooks() {
+    return [TOP, BOTTOM, ...extraShelves].flatMap((S, shelfIndex) => S.books.map((b, i) => ({ S, b, i, shelfNo: shelfIndex + 1 })));
+  }
+  function openFromSearch({ S, b, i }) {
+    closeModal();
+    // stand the book up and bring its shelf into view, so the shelf shows it when the user comes back
+    const N = S.books.length, v = i + N * Math.round((S.pos - i) / N);
+    activeShelf = S; S.goTo(v);
+    shelvesWrap.scrollTop = Math.max(0, S.cfg.BOT - TOP_BOT);  // instant: the shelf is hidden as the editor opens
+    onOpenNotebookRef.current(b);
+  }
+  function openSearch(navButton) {
+    modalRoot.style.pointerEvents = 'auto';
+    modalRoot.innerHTML = `<div class="modalBack searchBack"><div class="modalCard searchCard" role="dialog" aria-label="搜索笔记本">
+      <input class="mInput searchInput" type="search" placeholder="搜索笔记本…" aria-label="搜索笔记本" autocomplete="off">
+      <div class="searchResults" role="list"></div>
+    </div></div>`;
+    onModalClose = () => navButton.setAttribute('aria-pressed', 'false');
+    const back = modalRoot.querySelector('.modalBack'), input = modalRoot.querySelector('.searchInput'), list = modalRoot.querySelector('.searchResults');
+    back.addEventListener('click', e => { if (e.target === back) closeModal(); });
+    function render() {
+      const q = input.value.trim().toLowerCase();
+      const hits = allNotebooks().filter(n => n.b.title.toLowerCase().includes(q));
+      list.innerHTML = hits.length
+        ? hits.map((n, k) => `<button type="button" class="searchHit" role="listitem" data-k="${k}"><i style="background:${n.b.col}"></i><span>${esc(n.b.title)}</span><small>第 ${n.shelfNo} 层</small></button>`).join('')
+        : `<p class="searchEmpty">没有找到「${esc(input.value.trim())}」</p>`;
+      list.querySelectorAll('.searchHit').forEach(btn => btn.addEventListener('click', () => openFromSearch(hits[Number(btn.dataset.k)])));
+    }
+    input.addEventListener('input', render);
+    input.addEventListener('keydown', e => {                   // Enter opens the first match
+      if (e.key !== 'Enter') return;
+      const first = list.querySelector('.searchHit'); if (first) first.click();
+    });
+    render(); input.focus();
+  }
   function confirmDelete(S, v) {
     const b = S.books[mod(v, S.N)];
     modalRoot.style.pointerEvents = 'auto';
@@ -454,7 +495,8 @@ function initShelf(onOpenNotebookRef, signal) {
     b.addEventListener('click', () => {
       if (n.tab) {
         navBtns.forEach(x => { if (x.dataset.tab === '1') x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-        toast(n.label + ' — 对应页面下一步做');
+        if (n.k === 'search') openSearch(b);
+        else toast(n.label + ' — 对应页面下一步做');
       } else {                                            // "add notebook": flash the highlighted state, then release; the tab selection is untouched
         if (b.dataset.busy) return;                      // guards against a double-tap / "ghost click" adding more than one notebook
         b.dataset.busy = '1'; setTimeout(() => { delete b.dataset.busy; }, 900);
