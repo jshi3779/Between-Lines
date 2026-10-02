@@ -11,6 +11,10 @@ const ADD_PAGE_GAP = 110;
 const ADD_PAGE_THRESHOLD = 110;
 const PAGE_TURN_DISTANCE = 90;
 const PAGE_SETTLE_MS = 280;
+const CARD_TOOLBAR_WIDTH = 248;
+const CARD_TOOLBAR_HEIGHT = 62;
+const CARD_TOOLBAR_GAP = 8;
+const CARD_TOOLBAR_MIN_TOP = 96;
 const PAGE_SWIPE_BLOCKERS = "button, input, textarea, [contenteditable='true'], .edit-sentence-card, .card-toolbar, .blank-word-card";
 const STARTER_SENTENCES = [
   "今晚，去格拉斯哥的末班车没有等我。",
@@ -166,6 +170,11 @@ export default function App({ initialTitle, onExit }) {
   const appScreenRef = useRef(null);
   const pageSwipe = useRef(null);
   const suppressPageClick = useRef(false);
+  // The header <h1> stays uncontrolled (re-rendering a contentEditable's text moves the
+  // caret), so it renders a fixed initial value and reports edits into notebookTitle.
+  const [initialTitleText] = useState(initialTitle || "无标题");
+  const [notebookTitle, setNotebookTitle] = useState(initialTitleText);
+  const [toolbarPosition, setToolbarPosition] = useState(null);
   const [pageSwipeMode, setPageSwipeMode] = useState(null);
   const [isAddPageArmed, setIsAddPageArmed] = useState(false);
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
@@ -225,7 +234,7 @@ export default function App({ initialTitle, onExit }) {
   const shareTo = async (channel) => {
     if (channel === "系统分享" && navigator.share) {
       try {
-        await navigator.share({ title: "无标题", text: "邀请你一起在 Between Lines 里共写一句话。" });
+        await navigator.share({ title: notebookTitle || "无标题", text: "邀请你一起在 Between Lines 里共写一句话。" });
         setShareNotice("已打开系统分享");
       } catch {
         return;
@@ -863,6 +872,38 @@ export default function App({ initialTitle, onExit }) {
     screen?.style.setProperty("--add-progress", String(progress));
   };
 
+  // Positions are in unscaled 375x812 screen coordinates; the toolbar lives outside the
+  // scrolling sentence area so it can sit above the first card without being clipped.
+  const placeCardToolbar = () => {
+    const screen = appScreenRef.current;
+    const area = sentenceAreaRef.current;
+    const cards = area?.querySelectorAll(".edit-sentence-card") ?? [];
+    if (!screen || !cards.length) {
+      setToolbarPosition(null);
+      return;
+    }
+    const index = activeSentenceIndex != null && activeSentenceIndex < cards.length ? activeSentenceIndex : cards.length - 1;
+    const screenRect = screen.getBoundingClientRect();
+    const scale = screenRect.width / PAGE_WIDTH;
+    const shift = parseFloat(screen.style.getPropertyValue("--page-shift")) || 0;
+    const card = cards[index].getBoundingClientRect();
+    const areaRect = area.getBoundingClientRect();
+    const cardTop = (card.top - screenRect.top) / scale;
+    const cardBottom = (card.bottom - screenRect.top) / scale;
+    const visible = cardBottom > (areaRect.top - screenRect.top) / scale && cardTop < (areaRect.bottom - screenRect.top) / scale;
+    let placement = "above";
+    let top = cardTop - CARD_TOOLBAR_HEIGHT - CARD_TOOLBAR_GAP;
+    if (top < CARD_TOOLBAR_MIN_TOP) {
+      placement = "below";
+      top = cardBottom + CARD_TOOLBAR_GAP;
+    }
+    const left = (card.left - screenRect.left) / scale - shift + (card.width / scale - CARD_TOOLBAR_WIDTH) / 2;
+    const next = visible ? { top: Math.round(top), left: Math.round(left), placement } : null;
+    setToolbarPosition((previous) => (previous && next && previous.top === next.top && previous.left === next.left && previous.placement === next.placement ? previous : next));
+  };
+
+  useLayoutEffect(placeCardToolbar, [activeSentenceIndex, currentPage, currentSentenceCards, sentenceLineCounts, sentenceContentHeights]);
+
   const pageSwipeModeFor = (dx) => (dx < 0
     ? (currentPage < pageCount ? "next" : "add")
     : (currentPage > 1 ? "prev" : "edge"));
@@ -1010,8 +1051,9 @@ export default function App({ initialTitle, onExit }) {
             suppressContentEditableWarning
             spellCheck="false"
             aria-label="可编辑标题"
+            onInput={(event) => setNotebookTitle(event.currentTarget.textContent.trim())}
           >
-            {initialTitle || "无标题"}
+            {initialTitleText}
           </h1>
 
           <div className="nav-actions">
@@ -1028,7 +1070,7 @@ export default function App({ initialTitle, onExit }) {
           <section className="page-overview" aria-label="全部页面总览">
             <div className="page-overview-header">
               <button type="button" aria-label="返回笔记本" onClick={() => setIsPageOverviewOpen(false)}><img src={icon("back.svg")} alt="" /></button>
-              <h2>无标题</h2>
+              <h2>{notebookTitle || "无标题"}</h2>
               <button type="button" aria-label="分享笔记本" onClick={() => setIsShareOpen(true)}><img src={icon("overview-export.svg")} alt="" /></button>
             </div>
             <div className="page-overview-grid">
@@ -1198,7 +1240,7 @@ export default function App({ initialTitle, onExit }) {
           />
         </nav>
 
-        <section ref={sentenceAreaRef} className="sentence-area" aria-label="句子区域">
+        <section ref={sentenceAreaRef} className="sentence-area" aria-label="句子区域" onScroll={placeCardToolbar}>
           {currentSentenceCards.map((card, index) => {
             const visualLines = sentenceLineCounts[`${currentPage}-${index}`] ?? 1;
             const assetLines = Math.min(3, visualLines);
@@ -1337,65 +1379,6 @@ export default function App({ initialTitle, onExit }) {
             </button>
           )}
 
-          {hasSentence && (
-            <nav className="card-toolbar" aria-label="添加内容">
-              <button
-                type="button"
-                className="card-toolbar-button"
-                disabled={!canAddSentence}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={addSentence}
-              >
-                <span className="card-toolbar-icon" aria-hidden="true">
-                  <span className="card-toolbar-disc">
-                    <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
-                    <svg className="card-toolbar-disc-glyph" viewBox="0 0 32 32" fill="none" stroke="#FDFDFB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M6.2 8.6c6.6-.4 13.2-.5 19.7-.2.5 4.8.4 9.7.1 14.6-6.6.4-13.2.4-19.8.1-.4-4.8-.4-9.7 0-14.5Z" />
-                      <path d="M10 13.2h12M10 17.2h8.4" />
-                    </svg>
-                  </span>
-                </span>
-                <span>句卡</span>
-              </button>
-              <button
-                type="button"
-                className="card-toolbar-button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => insertIntoActiveSentence("word")}
-              >
-                <span className="card-toolbar-icon" aria-hidden="true">
-                  <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-cards.svg")} alt="" /></span>
-                </span>
-                <span>词卡</span>
-              </button>
-              <button
-                type="button"
-                className="card-toolbar-button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => insertIntoActiveSentence("photo")}
-              >
-                <span className="card-toolbar-icon" aria-hidden="true">
-                  <span className="card-toolbar-disc">
-                    <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
-                    <img className="card-toolbar-disc-glyph" src={icon("library-tab-image-icon.svg")} alt="" />
-                  </span>
-                </span>
-                <span>图片</span>
-              </button>
-              <button
-                type="button"
-                className="card-toolbar-button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => insertIntoActiveSentence("audio")}
-              >
-                <span className="card-toolbar-icon" aria-hidden="true">
-                  <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-audio.svg")} alt="" /></span>
-                </span>
-                <span>音频</span>
-              </button>
-            </nav>
-          )}
-
           {!hasSentence && (
             <div className="sentence-empty-state">
               <p>写下你的第一句话</p>
@@ -1404,6 +1387,69 @@ export default function App({ initialTitle, onExit }) {
           )}
 
         </section>
+
+        {hasSentence && toolbarPosition && (
+          <nav
+            className={`card-toolbar is-${toolbarPosition.placement}`}
+            style={{ top: toolbarPosition.top, left: toolbarPosition.left }}
+            aria-label="添加内容"
+          >
+            <button
+              type="button"
+              className="card-toolbar-button"
+              disabled={!canAddSentence}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={addSentence}
+            >
+              <span className="card-toolbar-icon" aria-hidden="true">
+                <span className="card-toolbar-disc">
+                  <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
+                  <svg className="card-toolbar-disc-glyph" viewBox="0 0 32 32" fill="none" stroke="#FDFDFB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6.2 8.6c6.6-.4 13.2-.5 19.7-.2.5 4.8.4 9.7.1 14.6-6.6.4-13.2.4-19.8.1-.4-4.8-.4-9.7 0-14.5Z" />
+                    <path d="M10 13.2h12M10 17.2h8.4" />
+                  </svg>
+                </span>
+              </span>
+              <span>句卡</span>
+            </button>
+            <button
+              type="button"
+              className="card-toolbar-button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => insertIntoActiveSentence("word")}
+            >
+              <span className="card-toolbar-icon" aria-hidden="true">
+                <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-cards.svg")} alt="" /></span>
+              </span>
+              <span>词卡</span>
+            </button>
+            <button
+              type="button"
+              className="card-toolbar-button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => insertIntoActiveSentence("photo")}
+            >
+              <span className="card-toolbar-icon" aria-hidden="true">
+                <span className="card-toolbar-disc">
+                  <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
+                  <img className="card-toolbar-disc-glyph" src={icon("library-tab-image-icon.svg")} alt="" />
+                </span>
+              </span>
+              <span>图片</span>
+            </button>
+            <button
+              type="button"
+              className="card-toolbar-button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => insertIntoActiveSentence("audio")}
+            >
+              <span className="card-toolbar-icon" aria-hidden="true">
+                <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-audio.svg")} alt="" /></span>
+              </span>
+              <span>音频</span>
+            </button>
+          </nav>
+        )}
 
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
 

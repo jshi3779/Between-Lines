@@ -462,7 +462,8 @@ html, body, #root {
 .app-screen.is-page-settling .page-slide,
 .app-screen.is-page-settling .sentence-area,
 .app-screen.is-page-settling .page-ghost,
-.app-screen.is-page-settling .page-add-indicator {
+.app-screen.is-page-settling .page-add-indicator,
+.app-screen.is-page-settling .card-toolbar {
   transition: transform 280ms cubic-bezier(.22, .8, .24, 1);
 }
 
@@ -1303,15 +1304,14 @@ html, body, #root {
 }
 
 
-/* Persistent card toolbar: stays on screen whenever the page has at least one sentence card,
-   so a word/photo/audio card can be dropped into whichever card is active without leaving the
-   flow of writing — the same insertion the space bar already triggers, just discoverable. */
+/* Floats over the card being edited (top/left set from App.jsx, flipping below the card when
+   there is no room above), and slides with the page during a swipe via --page-shift. */
 .card-toolbar {
   position: absolute;
-  left: 16px;
-  right: 96px;
-  bottom: 34px;
-  z-index: 2;
+  z-index: 5;
+  box-sizing: border-box;
+  width: 248px;
+  transform: translateX(var(--page-shift, 0px));
   display: flex;
   height: 62px;
   padding: 0 4px;
