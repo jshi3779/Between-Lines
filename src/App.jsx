@@ -1216,10 +1216,8 @@ export default function App({ initialTitle, onExit }) {
         {pageSwipeMode === "add" && (
           <div className={`page-add-indicator${isAddPageArmed ? " is-armed" : ""}`} aria-hidden="true">
             <span className="page-add-icon">
-              <svg className="page-add-ring" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="30" pathLength="100" />
-              </svg>
-              <img src={icon(isAddPageArmed ? "add-page-pressed.svg" : "add-page-default.svg")} alt="" draggable={false} />
+              <img src={icon("add-page-outline.svg")} alt="" draggable={false} />
+              <img className="page-add-icon-fill" src={icon("add-page-default.svg")} alt="" draggable={false} />
             </span>
             <span className="page-add-label">{isAddPageArmed ? "松开以添加页面" : "拉动以添加页面"}</span>
           </div>

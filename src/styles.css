@@ -491,27 +491,16 @@ html, body, #root {
   inset: 0;
   width: 56px;
   height: 56px;
-  opacity: calc(.3 + var(--add-progress, 0) * .7);
   transition: transform 160ms ease;
 }
 
-.page-add-ring {
-  position: absolute;
-  inset: -6px;
-  width: 68px;
-  height: 68px;
-  fill: none;
-  stroke: #242222;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 100;
-  stroke-dashoffset: calc(100 - var(--add-progress, 0) * 100);
-  transform: rotate(-90deg);
-  transition: opacity 160ms ease;
+/* Outline icon underneath, solid icon on top revealed from the bottom up as the pull
+   progresses, so the disc "fills with ink" and is pure black exactly when armed. */
+.page-add-icon-fill {
+  clip-path: inset(calc((1 - var(--add-progress, 0)) * 100%) 0 0 0);
 }
 
-.page-add-indicator.is-armed .page-add-icon img { opacity: 1; transform: scale(1.06); }
-.page-add-indicator.is-armed .page-add-ring { opacity: 0; }
+.page-add-indicator.is-armed .page-add-icon img { transform: scale(1.06); }
 
 .page-add-label {
   color: #79746d;
