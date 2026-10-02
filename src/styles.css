@@ -1492,8 +1492,32 @@ html, body, #root {
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 18px;
   transform: translateX(-50%);
+}
+
+.glyph-tab-icon {
+  position: relative;
+  display: block;
+  width: 51px;
+  height: 51px;
+}
+
+.glyph-tab-icon img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.glyph-tab-icon img.glyph-tab-disc { transform: translate(-50%, -50%) rotate(90deg); }
+
+.glyph-tab-glyph {
+  position: absolute;
+  top: 10px;
+  left: 9.5px;
+  width: 32px;
+  height: 32px;
 }
 
 .manage-tabs button {
@@ -1628,38 +1652,6 @@ html, body, #root {
   height: 640px;
   box-sizing: border-box;
   padding: 13px 17px 0;
-}
-
-.library-kind-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 21px;
-  height: 30px;
-}
-
-.library-kind-tabs button {
-  position: relative;
-  width: 51px;
-  padding: 0 0 8px;
-  border: 0;
-  background: transparent;
-  color: #a0a2a8;
-  font: inherit;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.library-kind-tabs button.is-selected { color: #1e2026; }
-.library-kind-tabs button.is-selected::after {
-  content: "";
-  position: absolute;
-  right: 5px;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  border-radius: 1px;
-  background: #1e2026;
-  transform: rotate(1.5deg);
 }
 
 .library-add-word {

@@ -65,6 +65,30 @@ const formatDuration = (seconds) => {
   return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, "0")}`;
 };
 const icon = (file) => `${import.meta.env.BASE_URL}icons/${file}`;
+
+// Drawn on a 32px grid to sit inside the 51px brush discs, same as the image tab's glyph.
+const SentenceCardGlyph = ({ className, color }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6.2 8.6c6.6-.4 13.2-.5 19.7-.2.5 4.8.4 9.7.1 14.6-6.6.4-13.2.4-19.8.1-.4-4.8-.4-9.7 0-14.5Z" />
+    <path d="M10 13.2h12M10 17.2h8.4" />
+  </svg>
+);
+
+// The dashed pill is the blank word card itself, i.e. what the button drops into the sentence.
+const WordCardGlyph = ({ className, color }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <path d="M10 10.6h12a5.4 5.4 0 0 1 0 10.8H10a5.4 5.4 0 0 1 0-10.8Z" strokeDasharray="3.1 2.7" />
+  </svg>
+);
+
+// Unselected tabs are a solid brush disc with a light glyph, selected ones an empty brush ring
+// with a dark glyph — the same pairing the existing image/audio/settings tab art uses.
+const GlyphTabIcon = ({ selected, glyph: Glyph }) => (
+  <span className="glyph-tab-icon">
+    <img className={selected ? "glyph-tab-ring" : "glyph-tab-disc"} src={icon(selected ? "manage-tab-ring-base.svg" : "library-tab-image-base.svg")} alt="" />
+    <Glyph className="glyph-tab-glyph" color={selected ? "#242222" : "#FDFDFB"} />
+  </span>
+);
 const SAMPLE_PHOTOS = [{
   id: "default-photo",
   name: "格拉斯哥艺术学院",
@@ -127,7 +151,6 @@ export default function App({ initialTitle, onExit }) {
   const [isPageOverviewOpen, setIsPageOverviewOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [manageSection, setManageSection] = useState("images");
-  const [libraryMode, setLibraryMode] = useState("words");
   const [libraryCategory, setLibraryCategory] = useState("全部");
   const [customLibraryCategories, setCustomLibraryCategories] = useState([]);
   const [isAddingLibraryCategory, setIsAddingLibraryCategory] = useState(false);
@@ -786,6 +809,7 @@ export default function App({ initialTitle, onExit }) {
     (selectedWordCategory === "全部" || category === selectedWordCategory)
     && word.includes(wordSearch.trim()),
   );
+  const isCardSection = manageSection === "sentences" || manageSection === "words";
   const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS];
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
     .filter((word) => word.includes(librarySearch.trim()));
@@ -1404,10 +1428,7 @@ export default function App({ initialTitle, onExit }) {
               <span className="card-toolbar-icon" aria-hidden="true">
                 <span className="card-toolbar-disc">
                   <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
-                  <svg className="card-toolbar-disc-glyph" viewBox="0 0 32 32" fill="none" stroke="#FDFDFB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6.2 8.6c6.6-.4 13.2-.5 19.7-.2.5 4.8.4 9.7.1 14.6-6.6.4-13.2.4-19.8.1-.4-4.8-.4-9.7 0-14.5Z" />
-                    <path d="M10 13.2h12M10 17.2h8.4" />
-                  </svg>
+                  <SentenceCardGlyph className="card-toolbar-disc-glyph" color="#FDFDFB" />
                 </span>
               </span>
               <span>句卡</span>
@@ -1419,7 +1440,10 @@ export default function App({ initialTitle, onExit }) {
               onClick={() => insertIntoActiveSentence("word")}
             >
               <span className="card-toolbar-icon" aria-hidden="true">
-                <span className="card-toolbar-disc"><img className="card-toolbar-disc-full" src={icon("manage-tab-cards.svg")} alt="" /></span>
+                <span className="card-toolbar-disc">
+                  <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
+                  <WordCardGlyph className="card-toolbar-disc-glyph" color="#FDFDFB" />
+                </span>
               </span>
               <span>词卡</span>
             </button>
@@ -1614,16 +1638,16 @@ export default function App({ initialTitle, onExit }) {
         )}
 
         {isManageOpen && (
-          <section className={`manage-screen manage-screen-${manageSection}`} aria-label="管理页面">
-            <div className="manage-paper" aria-hidden="true" style={{ "--manage-page-mask": `url("${icon(manageSection === "cards" ? "library-page-mask.svg" : "manage-page-mask.svg")}")` }} />
-            {manageSection !== "cards" && <>
+          <section className={`manage-screen manage-screen-${manageSection}${isCardSection ? " manage-screen-cards" : ""}`} aria-label="管理页面">
+            <div className="manage-paper" aria-hidden="true" style={{ "--manage-page-mask": `url("${icon(isCardSection ? "library-page-mask.svg" : "manage-page-mask.svg")}")` }} />
+            {!isCardSection && <>
               <img className="manage-line manage-line-top" src={icon("manage-line-top.svg")} alt="" />
               <img className="manage-line manage-line-bottom" src={icon("manage-line-bottom.svg")} alt="" />
             </>}
             <button className="manage-back" type="button" aria-label="返回笔记本" onClick={() => setIsManageOpen(false)}>
-              <img src={icon(manageSection === "cards" ? "library-back.svg" : "manage-back.svg")} alt="" />
+              <img src={icon(isCardSection ? "library-back.svg" : "manage-back.svg")} alt="" />
             </button>
-            <h2>{manageSection === "images" ? "图片管理" : manageSection === "audio" ? "音频管理" : manageSection === "settings" ? "内页与颜色" : "内容管理"}</h2>
+            <h2>{{ sentences: "句卡管理", words: "词卡管理", images: "图片管理", audio: "音频管理", settings: "内页与颜色" }[manageSection]}</h2>
             {manageSection === "images" ? <>
               <div className="manage-grid" aria-label="图片素材">
                 {managedPhotos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.name} />)}
@@ -1685,11 +1709,7 @@ export default function App({ initialTitle, onExit }) {
               </section>
               <button className="appearance-reset" type="button" onClick={() => { setPageTone("#fbfaf6"); setCardTone("#ffffff"); setInkTone("#242222"); setPagePattern("plain"); }}>恢复默认</button>
             </div> : <div className="library-content">
-              <nav className="library-kind-tabs" aria-label="资料库类型">
-                <button className={libraryMode === "words" ? "is-selected" : ""} type="button" onClick={() => setLibraryMode("words")}>词语</button>
-                <button className={libraryMode === "sentences" ? "is-selected" : ""} type="button" onClick={() => setLibraryMode("sentences")}>句子</button>
-              </nav>
-              {libraryMode === "words" ? <>
+              {manageSection === "words" ? <>
                 <form className="library-add-word" onSubmit={(event) => {
                   event.preventDefault();
                   const word = limitWordCardValue(newLibraryWord);
@@ -1727,11 +1747,12 @@ export default function App({ initialTitle, onExit }) {
               </div>}
             </div>}
             <nav className="manage-tabs" aria-label="管理类型">
-              <button type="button" aria-label="卡片管理" onClick={() => setManageSection("cards")}><img src={icon(manageSection === "cards" ? "library-tab-cards.svg" : "manage-tab-cards.svg")} alt="" /></button>
+              <button type="button" aria-label="句卡管理" aria-pressed={manageSection === "sentences"} onClick={() => setManageSection("sentences")}><GlyphTabIcon selected={manageSection === "sentences"} glyph={SentenceCardGlyph} /></button>
+              <button type="button" aria-label="词卡管理" aria-pressed={manageSection === "words"} onClick={() => setManageSection("words")}><GlyphTabIcon selected={manageSection === "words"} glyph={WordCardGlyph} /></button>
               <button type="button" aria-label="图片管理" onClick={() => setManageSection("images")}>
                 {manageSection === "images" ? <img src={icon("manage-tab-image.svg")} alt="" /> : <span className="library-image-tab"><img src={icon("library-tab-image-base.svg")} alt="" /><img src={icon("library-tab-image-icon.svg")} alt="" /></span>}
               </button>
-              <button type="button" aria-label="音频管理" onClick={() => setManageSection("audio")}><img src={icon(manageSection === "audio" ? "manage-tab-audio-selected.svg" : manageSection === "cards" ? "library-tab-audio.svg" : "manage-tab-audio.svg")} alt="" /></button>
+              <button type="button" aria-label="音频管理" onClick={() => setManageSection("audio")}><img src={icon(manageSection === "audio" ? "manage-tab-audio-selected.svg" : isCardSection ? "library-tab-audio.svg" : "manage-tab-audio.svg")} alt="" /></button>
               <button type="button" aria-label="内页与颜色" onClick={() => setManageSection("settings")}><img src={icon(manageSection === "settings" ? "manage-tab-settings-selected.svg" : "manage-tab-settings.svg")} alt="" /></button>
             </nav>
           </section>
