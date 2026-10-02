@@ -1008,6 +1008,38 @@ html, body, #root {
   scrollbar-width: thin;
 }
 .content-editor-scroll.is-audio { overflow: hidden; }
+
+.content-editor-title.is-text {
+  color: #242222;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.content-editor-sheet.is-sentence .content-editor-scroll { max-height: 300px; }
+
+.sentence-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sentence-picker-list button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #ecedf0;
+  color: #1e2026;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sentence-picker-list button:hover,
+.sentence-picker-list button:focus-visible { outline: 2px solid #3465d6; outline-offset: -2px; }
 .content-editor-sheet.is-photo .content-editor-scroll { overflow: hidden; }
 
 .word-entry {

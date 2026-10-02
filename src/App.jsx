@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
+import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
 // the sentence area starts at y=190, so content may run to y=776.
@@ -111,11 +111,18 @@ export default function App({ initialTitle, onExit }) {
   const [blankEditor, setBlankEditor] = useState(null);
   const [editorMode, setEditorMode] = useState("word");
   const [editorPosition, setEditorPosition] = useState({ left: 30, top: 200, pointerLeft: 130, placement: "below" });
+  // { page, index } of the card the sentence library will fill. The card's content and caret
+  // offset are captured when the panel opens: tapping a sentence blurs the card, which saves and
+  // re-renders it, so a DOM range taken earlier would point at detached nodes.
+  const [sentencePicker, setSentencePicker] = useState(null);
+  const sentencePickerTarget = useRef(null);
   const editorSheetRef = useRef(null);
   const sentenceAreaRef = useRef(null);
   useLayoutEffect(() => {
-    if (!blankEditor) return;
-    const anchor = document.querySelector(`[data-blank-id="${blankEditor.id}"]`);
+    if (!blankEditor && !sentencePicker) return;
+    const anchor = blankEditor
+      ? document.querySelector(`[data-blank-id="${blankEditor.id}"]`)
+      : sentenceAreaRef.current?.querySelector(`[data-sentence-index="${sentencePicker.index}"]`)?.closest(".edit-sentence-card");
     const screen = anchor?.closest(".app-screen");
     if (!anchor || !screen) return;
     const updatePosition = () => {
@@ -149,7 +156,7 @@ export default function App({ initialTitle, onExit }) {
       window.removeEventListener("resize", updatePosition);
       document.removeEventListener("scroll", updatePosition, true);
     };
-  }, [blankEditor?.id, editorMode]);
+  }, [blankEditor?.id, editorMode, sentencePicker?.index]);
   const [selectedWordCategory, setSelectedWordCategory] = useState("全部");
   const [wordSearch, setWordSearch] = useState("");
   const [hasSeedSentence, setHasSeedSentence] = useState(true);
@@ -625,8 +632,72 @@ export default function App({ initialTitle, onExit }) {
 
     insertBlankWordCard(index, element, range);
     const id = blankId.current;
+    setSentencePicker(null);
     setEditorMode(mode);
     setBlankEditor({ page: currentPage, index, id, value: "" });
+  };
+
+  const openSentencePicker = () => {
+    if (!currentSentenceCards.length) return;
+    const index = activeSentenceIndex != null && activeSentenceIndex < currentSentenceCards.length
+      ? activeSentenceIndex
+      : currentSentenceCards.length - 1;
+    const element = sentenceAreaRef.current?.querySelector(`[data-sentence-index="${index}"]`);
+    if (!element) return;
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    sentencePickerTarget.current = {
+      parts: partsFromElement(index, element),
+      offset: range && element.contains(range.startContainer) ? modelOffsetAtCaret(element, range) : Infinity,
+    };
+    setBlankEditor(null);
+    setSentencePicker({ page: currentPage, index });
+  };
+
+  // Inserts at a model offset (blank cards count as their text); a caret inside a blank card
+  // puts the sentence right after it, and an offset past the end appends.
+  const insertTextIntoParts = (parts, offset, text) => {
+    const result = [];
+    let remaining = offset;
+    let inserted = false;
+    for (const part of parts) {
+      if (inserted) {
+        result.push(part);
+        continue;
+      }
+      const length = part.value?.length ?? 0;
+      if (part.type === "text" && remaining <= length) {
+        result.push({ ...part, value: part.value.slice(0, remaining) + text + part.value.slice(remaining) });
+        inserted = true;
+        continue;
+      }
+      if (part.type !== "text" && remaining === 0) {
+        result.push(textPart(text), part);
+        inserted = true;
+        continue;
+      }
+      result.push(part);
+      remaining -= length;
+      if (part.type !== "text" && remaining < 0) {
+        result.push(textPart(text));
+        inserted = true;
+      }
+    }
+    if (!inserted) result.push(textPart(text));
+    return result;
+  };
+
+  const fillSentenceFromLibrary = (text) => {
+    const { page, index } = sentencePicker;
+    const { parts, offset } = sentencePickerTarget.current;
+    const nextParts = insertTextIntoParts(parts, offset, text);
+    setSentenceCards((cards) => ({
+      ...cards,
+      [page]: (cards[page] ?? []).map((card, cardIndex) => (cardIndex === index ? { ...card, parts: nextParts } : card)),
+    }));
+    pendingSentenceFocus.current = { page, index, focusText: true };
+    setSentencePicker(null);
+    setIsEditingCard(true);
   };
 
   const removeBlankWordCard = (index, id, childIndex) => {
@@ -819,7 +890,9 @@ export default function App({ initialTitle, onExit }) {
   const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS];
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
     .filter((word) => word.includes(librarySearch.trim()));
-  const managedSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
+  const writtenSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
+  const sentenceLibrary = [...new Set([...SENTENCE_LIBRARY, ...writtenSentences])];
+  const sheetMode = sentencePicker ? "sentence" : editorMode;
 
   useLayoutEffect(() => {
     const pending = pendingSentenceFocus.current;
@@ -867,7 +940,7 @@ export default function App({ initialTitle, onExit }) {
     };
   }, [currentPage, currentSentenceCards]);
 
-  const canSwipePages = !blankEditor && !selectedWord && !isManageOpen && !isPageOverviewOpen && !isShareOpen;
+  const canSwipePages = !blankEditor && !sentencePicker && !selectedWord && !isManageOpen && !isPageOverviewOpen && !isShareOpen;
   const ghostPage = pageSwipeMode === "prev" ? currentPage - 1 : currentPage + 1;
   const ghostOffset = pageSwipeMode === "prev"
     ? -(PAGE_WIDTH + PAGE_GAP)
@@ -960,7 +1033,7 @@ export default function App({ initialTitle, onExit }) {
       // Defer the move: it uses flushSync, which can't run inside this layout effect, and an
       // open content panel or a drag still points at the card's current page/index.
       clearTimeout(overflowTimer);
-      if (firstOverflow > 0 && !blankEditor && draggedSentence.current == null) {
+      if (firstOverflow > 0 && !blankEditor && !sentencePicker && draggedSentence.current == null) {
         overflowTimer = setTimeout(() => moveOverflowToNextPage(firstOverflow), 0);
       }
     };
@@ -971,7 +1044,7 @@ export default function App({ initialTitle, onExit }) {
       clearTimeout(overflowTimer);
       observer.disconnect();
     };
-  }, [currentPage, currentSentenceCards, blankEditor]);
+  }, [currentPage, currentSentenceCards, blankEditor, sentencePicker]);
 
   useLayoutEffect(placeCardToolbar, [activeSentenceIndex, currentPage, currentSentenceCards, sentenceLineCounts, sentenceContentHeights]);
 
@@ -1475,9 +1548,9 @@ export default function App({ initialTitle, onExit }) {
             <button
               type="button"
               className="card-toolbar-button"
-              disabled={!canAddSentence}
+              aria-haspopup="dialog"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={addSentence}
+              onClick={openSentencePicker}
             >
               <span className="card-toolbar-icon" aria-hidden="true">
                 <span className="card-toolbar-disc">
@@ -1531,11 +1604,11 @@ export default function App({ initialTitle, onExit }) {
 
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
 
-        {blankEditor && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label="添加内容">
+        {(blankEditor || sentencePicker) && (
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={sentencePicker ? "句卡库" : "添加内容"}>
             <section
               ref={editorSheetRef}
-              className={`content-editor-sheet is-${editorMode}`}
+              className={`content-editor-sheet is-${sheetMode}`}
               data-placement={editorPosition.placement}
               style={{ left: editorPosition.left, top: editorPosition.top, "--editor-pointer-left": `${editorPosition.pointerLeft}px` }}
               onClick={(event) => event.stopPropagation()}
@@ -1546,16 +1619,26 @@ export default function App({ initialTitle, onExit }) {
                 <img className="panel-middle" src={icon("panel-middle.svg")} alt="" />
                 <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
               </div>
-              <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => setBlankEditor(null)}>×</button>
-              <h3 className="content-editor-title">
-                <img
-                  src={icon(`content-tab-${editorMode}-selected.svg`)}
-                  alt={{ word: "词卡", photo: "图片", audio: "音频" }[editorMode]}
-                />
+              <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => { setBlankEditor(null); setSentencePicker(null); }}>×</button>
+              <h3 className={`content-editor-title${sheetMode === "sentence" ? " is-text" : ""}`}>
+                {sheetMode === "sentence" ? "句卡库" : (
+                  <img
+                    src={icon(`content-tab-${sheetMode}-selected.svg`)}
+                    alt={{ word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}
+                  />
+                )}
               </h3>
 
-              <div className={`content-editor-scroll${editorMode === "audio" ? " is-audio" : ""}`}>
-              {editorMode === "word" && (
+              <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
+              {sheetMode === "sentence" && (
+                <div className="sentence-picker-list">
+                  {sentenceLibrary.map((sentence) => (
+                    <button key={sentence} type="button" onClick={() => fillSentenceFromLibrary(sentence)}>{sentence}</button>
+                  ))}
+                </div>
+              )}
+
+              {sheetMode === "word" && (
                 <div className="content-editor-mode word-mode">
                   <label className="word-entry" htmlFor="blank-word-entry">
                     <input
@@ -1608,7 +1691,7 @@ export default function App({ initialTitle, onExit }) {
                 </div>
               )}
 
-              {editorMode === "photo" && (
+              {sheetMode === "photo" && (
                 <div className="content-editor-mode photo-mode">
                   <div className="content-actions">
                     <button type="button" aria-label="拍照" onClick={() => cameraInput.current?.click()}><img src={icon("camera-button.svg")} alt="" draggable={false} /></button>
@@ -1649,7 +1732,7 @@ export default function App({ initialTitle, onExit }) {
                 </div>
               )}
 
-              {editorMode === "audio" && (
+              {sheetMode === "audio" && (
                 <div className="content-editor-mode audio-mode">
                   <div className="audio-recorder-fixed">
                     <button
@@ -1788,7 +1871,7 @@ export default function App({ initialTitle, onExit }) {
                   {managedWords.map((word, index) => <button key={word} type="button" style={{ backgroundImage: `url("${icon(`library-word-${index % 5 + 1}.svg`)}")` }}>{word}</button>)}
                 </div>
               </> : <div className="library-sentence-list">
-                {managedSentences.map((sentence, index) => <article key={`${sentence}-${index}`}>{sentence}</article>)}
+                {sentenceLibrary.map((sentence) => <article key={sentence}>{sentence}</article>)}
               </div>}
             </div>}
             <nav className="manage-tabs" aria-label="管理类型">
