@@ -169,3 +169,37 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .setBtn.isDanger{background:transparent;color:#b53a2f;box-shadow:inset 0 0 0 1.5px #b53a2f}
 .setBtn:disabled{opacity:.45;cursor:default}
 .settingsCard p.setAbout{margin:8px 0 0;text-align:center;font-size:11px;color:#b1ac9f}
+/* ---------- shelf popups wear the editor's word/sentence sheet: paper panel art, marker type, × close ---------- */
+.modalBack{background:rgb(36 34 34 / 26%)}
+.modalCard{box-sizing:border-box;width:315px;padding:20px;border-radius:0;box-shadow:none;color:#242222;font-family:var(--marker);font-size:12.5px;
+  background:url("/icons/panel-top.svg") top / 100% 20px no-repeat,url("/icons/panel-bottom.svg") bottom / 100% 20px no-repeat,url("/icons/panel-middle.svg") 0 19px / 100% calc(100% - 38px) no-repeat;
+  filter:drop-shadow(0 -8px 24px rgb(36 34 34 / 18%))}
+.modalCard h3{margin:0 0 14px;font-size:17px;line-height:24px;color:#242222}
+.modalCard p{font-size:12.5px;color:#7d7a74}
+.mLabel{font-family:var(--marker);text-transform:none;letter-spacing:0}
+.sheetWrap{position:relative;max-width:calc(100% - 16px)}
+.sheetWrap > .modalCard{max-width:100%}
+.sheetClose{position:absolute;top:20px;right:20px;z-index:3;width:20px;height:20px;padding:0;border:0;background:transparent;color:#1e2026;font:24px/18px var(--marker);cursor:pointer}
+.sheetClose:focus-visible{outline:2px solid #3465d6;outline-offset:2px}
+/* search field: the same drawn field and magnifier as the word panel */
+.sheetSearch{position:relative;display:block;height:31px;padding:0 12px;background:url("/icons/search-field.svg") center / 100% 31px no-repeat}
+.sheetSearch::after{content:"";position:absolute;top:6px;right:9px;width:19px;height:19px;background:url("/icons/search.svg") center / contain no-repeat;pointer-events:none}
+.sheetSearch .searchInput{box-sizing:border-box;width:100%;height:31px;padding:0 28px 0 0;border:0;background:transparent;color:#242222;font:14px var(--marker);outline:none;-webkit-appearance:none;appearance:none}
+.sheetSearch .searchInput::-webkit-search-cancel-button{display:none}
+/* result rows: the sentence-library rows */
+.searchCard .searchResults{gap:7px;margin-top:12px}
+.searchCard .searchHit{padding:10px 14px;border-radius:14px;background:#ecedf0;color:#1e2026;font:14px/20px var(--marker)}
+.searchCard .searchHit:hover,.searchCard .searchHit:focus-visible{background:#ecedf0;outline:2px solid #3465d6;outline-offset:-2px}
+.searchCard .searchHit small,.capsuleHit span small{font-family:var(--marker);color:#8b8a86}
+.searchCard .searchEmpty{font-family:var(--marker);color:#8b8a86}
+.capsuleListCard h3,.settingsCard h3{margin:0 0 14px;font-size:17px}
+/* settings */
+.settingsCard{padding:20px}
+.setSec{border-bottom-color:#ecedf0}
+.setSec h4{font-size:14px;color:#242222}
+.settingsCard .setSec p{font-family:var(--marker);color:#7d7a74}
+.setBtn{background:#ecedf0;border-radius:14px}
+.setBtn.isDark{background:#1e2026}
+.modalBtns button{border-radius:14px}
+.mCancel{background:#ecedf0}
+.mSave{background:#1e2026}

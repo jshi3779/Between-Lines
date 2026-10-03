@@ -308,6 +308,13 @@ function initShelf(onOpenNotebookRef, signal) {
   /* ---------- delete-confirm / edit-notebook modal (shared; only one can be open) ---------- */
   const modalRoot = $('modalRoot');
   let onModalClose = null;                                   // e.g. un-press the search tab, however the modal is dismissed
+  // the search / time / settings panels wear the editor's paper sheet and its × (outside the card, so a re-render keeps it)
+  function addSheetClose() {
+    const card = modalRoot.querySelector('.modalCard'), wrap = document.createElement('div'), x = document.createElement('button');
+    wrap.className = 'sheetWrap'; card.before(wrap); wrap.appendChild(card);
+    x.type = 'button'; x.className = 'sheetClose'; x.setAttribute('aria-label', '关闭'); x.textContent = '×';
+    x.addEventListener('click', closeModal); wrap.appendChild(x);
+  }
   function closeModal() {
     modalRoot.innerHTML = ''; modalRoot.style.pointerEvents = 'none';
     const done = onModalClose; onModalClose = null; if (done) done();
@@ -328,9 +335,11 @@ function initShelf(onOpenNotebookRef, signal) {
   function openSearch(navButton) {
     modalRoot.style.pointerEvents = 'auto';
     modalRoot.innerHTML = `<div class="modalBack searchBack"><div class="modalCard searchCard" role="dialog" aria-label="搜索笔记本">
-      <input class="mInput searchInput" type="search" placeholder="搜索笔记本…" aria-label="搜索笔记本" autocomplete="off">
+      <h3>搜索笔记本</h3>
+      <label class="sheetSearch"><input class="searchInput" type="search" placeholder="输入笔记本的名字…" aria-label="搜索笔记本" autocomplete="off"></label>
       <div class="searchResults" role="list"></div>
     </div></div>`;
+    addSheetClose();
     onModalClose = () => navButton.setAttribute('aria-pressed', 'false');
     const back = modalRoot.querySelector('.modalBack'), input = modalRoot.querySelector('.searchInput'), list = modalRoot.querySelector('.searchResults');
     back.addEventListener('click', e => { if (e.target === back) closeModal(); });
@@ -368,6 +377,7 @@ function initShelf(onOpenNotebookRef, signal) {
             <span><b>${esc(x.n.b.title)}</b><small>${x.pages} · ${x.date}开启</small></span><em>${openLabel(x.days)}</em></button>`).join('')
         : `<p class="searchEmpty">还没有时间胶囊<br>在笔记本的页面总览里选几页封存起来</p>`}</div>
     </div></div>`;
+    addSheetClose();
     onModalClose = () => navButton.setAttribute('aria-pressed', 'false');
     const back = modalRoot.querySelector('.modalBack');
     back.addEventListener('click', e => { if (e.target === back) closeModal(); });
@@ -451,6 +461,7 @@ function initShelf(onOpenNotebookRef, signal) {
   function openSettings(navButton) {
     modalRoot.style.pointerEvents = 'auto';
     modalRoot.innerHTML = `<div class="modalBack searchBack"><div class="modalCard searchCard settingsCard" role="dialog" aria-label="设置"></div></div>`;
+    addSheetClose();
     onModalClose = () => navButton.setAttribute('aria-pressed', 'false');
     const back = modalRoot.querySelector('.modalBack');
     back.addEventListener('click', e => { if (e.target === back) closeModal(); });
