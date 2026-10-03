@@ -28,6 +28,20 @@ const STARTER_SENTENCES = [
 ];
 const USER_ACCENT_COLORS = ["#f6be45", "#3465d6", "#1d9c6c", "#ec4e99"];
 const textPart = (value) => ({ type: "text", value });
+// Capsule dates are "YYYY-MM-DD" keys (local time), so they compare correctly as strings.
+const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+const daysUntil = (key) => {
+  const [year, month, day] = key.split("-").map(Number);
+  const today = new Date();
+  return Math.round((new Date(year, month - 1, day) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+};
+const capsuleOpenLabel = (key) => {
+  const days = daysUntil(key);
+  if (days < 14) return `${days}天后开启`;
+  if (days < 60) return `${Math.round(days / 7)}周后开启`;
+  return `${Math.round(days / 30)}个月后开启`;
+};
 const CARET_ANCHOR = "​";
 const withoutCaretAnchor = (value) => value.replaceAll(CARET_ANCHOR, "");
 const GUIDE_SENTENCE_CARDS = [
@@ -178,8 +192,12 @@ export default function App({ initialTitle, onExit }) {
   const [pagePattern, setPagePattern] = useState("plain");
   const [selectedSpreads, setSelectedSpreads] = useState([]);
   const [isCapsuleDateOpen, setIsCapsuleDateOpen] = useState(false);
-  const [capsuleMonth, setCapsuleMonth] = useState({ year: 2026, month: 8 });
-  const [capsuleRange, setCapsuleRange] = useState([4, 17]);
+  const [capsuleMonth, setCapsuleMonth] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth() }));
+  // [start, end] date keys of the sealing period; the capsule opens on the end date.
+  const [capsuleRange, setCapsuleRange] = useState(() => [dateKey(new Date()), dateKey(addDays(new Date(), 21))]);
+  // { id, spreads: [first page of each sealed spread], openAt: date key }
+  const [capsules, setCapsules] = useState([]);
+  const [overviewNotice, setOverviewNotice] = useState("");
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
   const [recentPhotos, setRecentPhotos] = useState([]);
@@ -218,6 +236,12 @@ export default function App({ initialTitle, onExit }) {
   const [pageSwipeMode, setPageSwipeMode] = useState(null);
   const [isAddPageArmed, setIsAddPageArmed] = useState(false);
   const currentPageSide = currentPage % 2 === 1 ? "left" : "right";
+
+  useEffect(() => {
+    if (!overviewNotice) return undefined;
+    const timer = setTimeout(() => setOverviewNotice(""), 2200);
+    return () => clearTimeout(timer);
+  }, [overviewNotice]);
 
   useEffect(() => () => {
     photoUrls.current.forEach((url) => URL.revokeObjectURL(url));
@@ -888,6 +912,25 @@ export default function App({ initialTitle, onExit }) {
     && word.includes(wordSearch.trim()),
   );
   const isCardSection = manageSection === "sentences" || manageSection === "words";
+  // A capsule stays sealed until its open date; spreads are identified by their first page.
+  const sealedCapsuleFor = (page) => {
+    const spreadStart = page % 2 === 1 ? page : page - 1;
+    return capsules.find((capsule) => capsule.spreads.includes(spreadStart) && daysUntil(capsule.openAt) > 0);
+  };
+  const currentCapsule = sealedCapsuleFor(currentPage);
+
+  const sealSelectedSpreads = () => {
+    const [start, end] = capsuleRange;
+    const openAt = end ?? start;
+    if (daysUntil(openAt) <= 0) {
+      setOverviewNotice("开启日期要选在今天之后");
+      return;
+    }
+    setCapsules((list) => [...list, { id: Date.now(), spreads: [...selectedSpreads].sort((a, b) => a - b), openAt }]);
+    setOverviewNotice(`已封存 ${selectedSpreads.length} 页，${capsuleOpenLabel(openAt)}`);
+    setSelectedSpreads([]);
+    setIsCapsuleDateOpen(false);
+  };
   const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS];
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
     .filter((word) => word.includes(librarySearch.trim()));
@@ -1291,78 +1334,119 @@ export default function App({ initialTitle, onExit }) {
               {Array.from({ length: Math.ceil(pageCount / 2) }, (_, index) => {
                 const page = index * 2 + 1;
                 const lastPage = Math.min(page + 1, pageCount);
+                const pageLabel = `第 ${page}${lastPage > page ? `–${lastPage}` : ""} 页`;
+                const capsule = sealedCapsuleFor(page);
+                if (capsule) {
+                  const [, openMonth, openDay] = capsule.openAt.split("-").map(Number);
+                  return (
+                    <div className="overview-card-container is-sealed" key={page}>
+                      <button
+                        className="page-overview-card overview-capsule-card"
+                        type="button"
+                        aria-label={`${pageLabel}已封存为时间胶囊，${capsuleOpenLabel(capsule.openAt)}`}
+                        onClick={() => setOverviewNotice(`这页时间胶囊将在 ${openMonth}月${openDay}日 开启`)}
+                      >
+                        <div className="overview-book">
+                          <img className="overview-spread-image" src={icon("spread-thumbnail-unselected.svg")} alt="" />
+                        </div>
+                        {/* Figma layer order: ring under the wrap, the string over the tag */}
+                        <img className="capsule-ring" src={icon("capsule-select-ring.svg")} alt="" />
+                        <span className="capsule-wrap" aria-hidden="true" />
+                        <span className="capsule-tag" aria-hidden="true">{capsuleOpenLabel(capsule.openAt)}</span>
+                        <img className="capsule-string" src={icon("capsule-string.svg")} alt="" />
+                      </button>
+                    </div>
+                  );
+                }
                 const isSelected = selectedSpreads.includes(page);
                 return (
                   <div className="overview-card-container" key={page}>
                   <button
                     className="page-overview-card"
                     type="button"
-                    aria-label={`打开第 ${page}${lastPage > page ? `–${lastPage}` : ""} 页`}
+                    aria-label={`打开${pageLabel}`}
                     onClick={() => {
                       setCurrentPage(currentPage >= page && currentPage <= lastPage ? currentPage : page);
                       setIsPageOverviewOpen(false);
                     }}
                   >
                     <div className="overview-book">
-                      <img className="overview-spread-image" src={icon(isSelected ? "spread-thumbnail-selected.svg" : "spread-thumbnail-unselected.svg")} alt="双页展开缩略图" />
+                      <img className="overview-spread-image" src={icon(isSelected ? "spread-thumbnail-selected.svg" : "spread-thumbnail-unselected.svg")} alt="" />
                     </div>
-                    <span className="overview-card-caption">跨页 {index + 1}</span>
                   </button>
                   <button
                     type="button"
                     className="overview-select-toggle"
-                    aria-label={`${isSelected ? "取消选择" : "选择"}第 ${page}${lastPage > page ? `–${lastPage}` : ""} 页`}
+                    aria-label={`${isSelected ? "取消选择" : "选择"}${pageLabel}`}
                     aria-pressed={isSelected}
                     onClick={() => setSelectedSpreads((selected) => selected.includes(page) ? selected.filter((item) => item !== page) : [...selected, page])}
                   >
-                    {!isSelected && <img src={icon("spread-select.svg")} alt="" />}
+                    {isSelected ? <span className="overview-select-check" aria-hidden="true">✓</span> : <img src={icon("spread-select.svg")} alt="" />}
                   </button>
                   </div>
                 );
               })}
             </div>
+            {overviewNotice && <p className="overview-notice" role="status">{overviewNotice}</p>}
             {selectedSpreads.length > 0 && (
-              <button className="overview-capsule-action" type="button" onClick={() => setIsCapsuleDateOpen(true)}>
-                将选 {selectedSpreads.length} 页封存为时间胶囊
+              <button className={`overview-capsule-action${isCapsuleDateOpen ? " is-active" : ""}`} type="button" onClick={() => setIsCapsuleDateOpen(true)}>
+                将这 {selectedSpreads.length} 页封存为时间胶囊
               </button>
             )}
 
             {isCapsuleDateOpen && (() => {
               const { year, month } = capsuleMonth;
-              const firstDay = new Date(year, month, 1).getDay();
-              const mondayOffset = (firstDay + 6) % 7;
+              const firstWeekday = new Date(year, month, 1).getDay();
               const dayCount = new Date(year, month + 1, 0).getDate();
-              const days = [...Array(mondayOffset).fill(null), ...Array.from({ length: dayCount }, (_, i) => i + 1)];
+              const todayKey = dateKey(new Date());
               const [rangeStart, rangeEnd] = capsuleRange;
+              const lastInRange = rangeEnd ?? rangeStart;
               const changeMonth = (step) => setCapsuleMonth((value) => {
                 const next = new Date(value.year, value.month + step, 1);
                 return { year: next.getFullYear(), month: next.getMonth() };
               });
-              const chooseDay = (day) => setCapsuleRange(([start, end]) => (!start || end ? [day, null] : [Math.min(start, day), Math.max(start, day)]));
+              // First tap starts a new period, second tap closes it (in either order).
+              const chooseDay = (key) => setCapsuleRange(([start, end]) => (!start || end ? [key, null] : key < start ? [key, start] : [start, key]));
               return (
                 <div className="capsule-date-backdrop" role="presentation" onClick={() => setIsCapsuleDateOpen(false)}>
                   <section className="capsule-date-dialog" role="dialog" aria-modal="true" aria-label="选择日期" onClick={(event) => event.stopPropagation()}>
                     <div className="capsule-date-title">
                       <h3>选择日期</h3>
-                      <button type="button" aria-label="关闭日期选择" onClick={() => setIsCapsuleDateOpen(false)}>×</button>
+                      <button type="button" aria-label="关闭日期选择" onClick={() => setIsCapsuleDateOpen(false)}><img src={icon("capsule-date-close.svg")} alt="" /></button>
                     </div>
                     <div className="capsule-month-row">
                       <button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}>‹</button>
                       <strong>{year}年{month + 1}月</strong>
                       <button type="button" aria-label="下个月" onClick={() => changeMonth(1)}>›</button>
                     </div>
-                    <div className="capsule-weekdays">{["一", "二", "三", "四", "五", "六", "日"].map((day) => <span key={day}>{day}</span>)}</div>
+                    <div className="capsule-weekdays">{["日", "一", "二", "三", "四", "五", "六"].map((day) => <span key={day}>{day}</span>)}</div>
                     <div className="capsule-calendar">
-                      {days.map((day, index) => day ? (
-                        <button
-                          key={day}
-                          type="button"
-                          className={`${day >= rangeStart && day <= (rangeEnd ?? rangeStart) ? "is-in-range" : ""} ${day === rangeStart || day === rangeEnd ? "is-range-edge" : ""}`}
-                          onClick={() => chooseDay(day)}
-                        >{day}</button>
-                      ) : <span key={`blank-${index}`} />)}
+                      {Array.from({ length: firstWeekday }, (_, index) => <span key={`blank-${index}`} />)}
+                      {Array.from({ length: dayCount }, (_, index) => {
+                        const day = index + 1;
+                        const key = dateKey(new Date(year, month, day));
+                        const column = (firstWeekday + index) % 7;
+                        const inRange = key >= rangeStart && key <= lastInRange;
+                        const classes = [
+                          inRange && "is-in-range",
+                          (key === rangeStart || key === lastInRange) && "is-range-edge",
+                          inRange && (key === rangeStart || column === 0 || day === 1) && "is-bar-start",
+                          inRange && (key === lastInRange || column === 6 || day === dayCount) && "is-bar-end",
+                        ].filter(Boolean).join(" ");
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={classes}
+                            disabled={key < todayKey}
+                            aria-pressed={inRange}
+                            aria-label={`${month + 1}月${day}日`}
+                            onClick={() => chooseDay(key)}
+                          >{day}</button>
+                        );
+                      })}
                     </div>
-                    <button className="capsule-confirm" type="button" onClick={() => setIsCapsuleDateOpen(false)}>确认</button>
+                    <button className="capsule-confirm" type="button" onClick={sealSelectedSpreads}>确认</button>
                   </section>
                 </div>
               );
@@ -1454,7 +1538,13 @@ export default function App({ initialTitle, onExit }) {
           />
         </nav>
 
-        <section ref={sentenceAreaRef} className="sentence-area" aria-label="句子区域" onScroll={placeCardToolbar}>
+        <section ref={sentenceAreaRef} className={`sentence-area${currentCapsule ? " is-sealed" : ""}`} aria-label="句子区域" onScroll={placeCardToolbar}>
+          {currentCapsule && (
+            <div className="page-capsule-cover" role="note" aria-label={`这页已封存为时间胶囊，${capsuleOpenLabel(currentCapsule.openAt)}`}>
+              <img className="capsule-string" src={icon("capsule-string.svg")} alt="" />
+              <span className="capsule-tag" aria-hidden="true">{capsuleOpenLabel(currentCapsule.openAt)}</span>
+            </div>
+          )}
           {currentSentenceCards.map((card, index) => {
             const visualLines = sentenceLineCounts[`${currentPage}-${index}`] ?? 1;
             const assetLines = Math.min(3, visualLines);
@@ -1603,7 +1693,7 @@ export default function App({ initialTitle, onExit }) {
 
         </section>
 
-        {hasSentence && isEditingCard && toolbarPosition && (
+        {hasSentence && isEditingCard && toolbarPosition && !currentCapsule && (
           <nav
             className={`card-toolbar is-${toolbarPosition.placement}`}
             style={{ top: toolbarPosition.top, left: toolbarPosition.left }}

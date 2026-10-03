@@ -159,7 +159,7 @@ html, body, #root {
 
 .page-overview-card {
   position: relative;
-  height: 160px;
+  height: 150px;
   overflow: hidden;
   padding: 0;
   border: 2px solid transparent;
@@ -205,7 +205,89 @@ html, body, #root {
 }
 
 .page-overview-header button img { display: block; width: 25px; height: 25px; object-fit: contain; }
-.overview-book { position: absolute; inset: 0 0 10px; overflow: visible; border-radius: 6px; }
+.overview-book { position: absolute; inset: 0; overflow: visible; border-radius: 6px; }
+/* nudged onto the blue dot drawn inside spread-thumbnail-selected.svg */
+.overview-select-check { position: relative; left: -5px; top: 1px; color: #fff; font-size: 11px; line-height: 1; }
+
+/* Sealed spread (Figma 2:999-2:1005): the spread under a translucent kraft wrap, the string bow
+   across it, a tilted red tag with the time left, and a plain ring where the select toggle was. */
+/* z-index 0 keeps the wrap under the string: `.page-overview-card span` lifts spans to 1 */
+.page-overview-card.overview-capsule-card .capsule-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  border-radius: 8px;
+  background: rgb(214 199 169 / 80%);
+}
+.page-overview-card .capsule-string {
+  position: absolute;
+  inset: auto;
+  left: 2.5px;
+  top: 1.5px;
+  width: 162.5px;
+  height: 149px;
+  object-fit: fill;
+}
+.page-overview-card .capsule-ring {
+  position: absolute;
+  inset: auto;
+  top: 12px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+}
+.capsule-tag {
+  position: absolute;
+  z-index: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #c85440;
+  color: #fff;
+  font: 9px/1.3 "851 GBai Marker", "Segoe Print", cursive;
+  white-space: nowrap;
+  transform: rotate(-8deg);
+}
+/* restated at card specificity: `.page-overview-card span` would otherwise restyle the tag */
+.page-overview-card .capsule-tag {
+  z-index: 0;
+  left: 57px;
+  top: 30px;
+  bottom: auto;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #c85440;
+  color: #fff;
+  font-size: 9px;
+}
+
+.overview-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 84px;
+  z-index: 3;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgb(30 32 38 / 88%);
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* A sealed page in the editor hides its cards under the same kraft wrap until the open date. */
+.sentence-area.is-sealed { height: 586px; overflow: hidden; }
+.sentence-area.is-sealed > :not(.page-capsule-cover) { visibility: hidden; }
+.page-capsule-cover {
+  position: absolute;
+  inset: 8px 10px 24px;
+  z-index: 3;
+  border-radius: 8px;
+  background: rgb(214 199 169 / 80%);
+}
+.page-capsule-cover .capsule-string { position: absolute; inset: 0; width: 100%; height: 100%; }
+.page-capsule-cover .capsule-tag { top: 30%; left: 50%; padding: 6px 12px; font-size: 15px; transform: translateX(-50%) rotate(-8deg); }
 .overview-card-container { position: relative; min-width: 0; }
 .overview-card-container .page-overview-card { width: 100%; }
 .overview-select-toggle { position: absolute; top: 10px; right: 8px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
@@ -227,16 +309,23 @@ html, body, #root {
   position: absolute;
   z-index: 2;
   left: 50%;
-  bottom: 22px;
-  width: min(324px, calc(100% - 52px));
-  min-height: 48px;
+  bottom: 30px;
+  width: 270px;
+  height: 38px;
   transform: translateX(-50%);
   border: 0;
-  border-radius: 24px;
-  background: #242222;
+  border-radius: 12px;
+  background: #1e2026;
   color: #fff;
-  font: 15px/1.2 "851 GBai Marker", "Segoe Print", cursive;
+  font: 13.5px/1 "851 GBai Marker", "Segoe Print", cursive;
   cursor: pointer;
+}
+
+/* While its date dialog is open the button shows as the outlined, pressed state (Figma 2:1029). */
+.overview-capsule-action.is-active {
+  background: #fff;
+  color: #1e2026;
+  box-shadow: inset 0 0 0 2px #1e2026;
 }
 
 .capsule-date-backdrop {
@@ -248,60 +337,106 @@ html, body, #root {
   background: rgb(36 34 34 / 30%);
 }
 
+/* Figma 2:1033: 319px card, 7 x 33px day columns with 6px gaps (267px) centred in it. */
 .capsule-date-dialog {
-  width: min(323px, calc(100% - 52px));
-  padding: 22px 22px 20px;
-  border-radius: 20px 18px 22px 17px;
+  box-sizing: border-box;
+  width: 319px;
+  max-width: calc(100% - 16px);
+  padding: 16px 26px 13px;
+  border-radius: 16px;
   background: #fff;
-  box-shadow: 0 8px 30px rgb(36 34 34 / 18%);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 20%);
+  color: #1e2026;
 }
 
-.capsule-date-title,
+.capsule-date-title {
+  position: relative;
+  height: 19px;
+  text-align: center;
+}
+
+.capsule-date-title h3 { margin: 0; padding-top: 2px; font-size: 14px; font-weight: 400; line-height: 1; }
+.capsule-date-title button {
+  position: absolute;
+  top: 0;
+  right: -14px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+/* the Figma close glyph is a plus turned 45° inside its 19px box */
+.capsule-date-title button img { display: block; width: 16px; height: 16px; transform: rotate(45deg); }
+
 .capsule-month-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 239px;
+  margin: 10px 0 0 -4px;
 }
+.capsule-month-row button { padding: 0 2px; border: 0; background: transparent; color: #5a5c62; font: 16px/1 inherit; cursor: pointer; }
+.capsule-month-row strong { color: #282a30; font-size: 13px; font-weight: 400; }
 
-.capsule-date-title h3 { margin: 0; font-size: 20px; font-weight: 400; }
-.capsule-date-title button,
-.capsule-month-row button { border: 0; background: transparent; color: #242222; font: 24px/1 inherit; cursor: pointer; }
-.capsule-month-row { margin: 18px 6px 12px; }
-.capsule-month-row strong { font-size: 15px; font-weight: 400; }
 .capsule-weekdays,
-.capsule-calendar { display: grid; grid-template-columns: repeat(7, 1fr); }
-.capsule-weekdays { margin-bottom: 5px; color: #918b83; font: 10px/26px Arial, sans-serif; text-align: center; }
-.capsule-calendar { row-gap: 3px; }
+.capsule-calendar { display: grid; grid-template-columns: repeat(7, 33px); column-gap: 6px; }
+.capsule-weekdays { margin-top: 10px; color: #a5a7ad; font-size: 10px; line-height: 10px; text-align: center; }
+.capsule-calendar { row-gap: 5px; margin-top: 6px; }
 .capsule-calendar > span,
-.capsule-calendar > button { height: 31px; }
+.capsule-calendar > button { height: 28px; }
 .capsule-calendar > button {
   position: relative;
+  z-index: 0;
+  padding: 0;
   border: 0;
-  border-radius: 0;
   background: transparent;
-  color: #242222;
-  font: 11px Arial, sans-serif;
+  color: #37393f;
+  font: 12.5px/28px "851 GBai Marker", "Segoe Print", cursive;
   cursor: pointer;
 }
-.capsule-calendar > button.is-in-range { background: #eee8dc; }
-.capsule-calendar > button.is-range-edge {
-  border-radius: 0;
-  background-color: transparent;
-  background-image: url("/icons/capsule-date-selected.svg");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 31px 31px;
-  color: #fff;
+.capsule-calendar > button:disabled { color: #c9cbd0; cursor: default; }
+
+/* The range is drawn as one rounded 18px bar per row: each day's bar reaches 3px into the gap
+   on both sides, and the bar's start/end days (range ends, week ends, month ends) round off. */
+.capsule-calendar > button.is-in-range::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 5px;
+  bottom: 5px;
+  left: -3px;
+  right: -3px;
+  background: #efe7db;
 }
+.capsule-calendar > button.is-bar-start::before { left: 3px; border-radius: 24px 0 0 24px; }
+.capsule-calendar > button.is-bar-end::before { right: 3px; border-radius: 0 24px 24px 0; }
+.capsule-calendar > button.is-bar-start.is-bar-end::before { border-radius: 24px; }
+.capsule-calendar > button.is-range-edge { color: #fff; }
+.capsule-calendar > button.is-range-edge::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  background: url("/icons/capsule-date-edge.svg") center / 28px 28px no-repeat;
+  transform: translateX(-50%);
+}
+
 .capsule-confirm {
-  width: 100%;
-  height: 38px;
-  margin-top: 14px;
+  width: calc(100% + 20px);
+  height: 42px;
+  margin: 3px -10px 0;
   border: 0;
-  border-radius: 20px;
-  background: #242222;
+  border-radius: 11px;
+  background: #1e2026;
   color: #fff;
-  font: 14px "851 GBai Marker", "Segoe Print", cursive;
+  font: 12.5px "851 GBai Marker", "Segoe Print", cursive;
   cursor: pointer;
 }
 
