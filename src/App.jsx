@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
+import { LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
 // the sentence area starts at y=190, so content may run to y=776.
@@ -42,6 +43,16 @@ const capsuleOpenLabel = (key) => {
   if (days < 60) return `${Math.round(days / 7)}周后开启`;
   return `${Math.round(days / 30)}个月后开启`;
 };
+// New blank ids must stay above every id already saved in the notebook.
+const maxBlankId = (cards) => Math.max(5, ...Object.values(cards ?? {}).flat()
+  .flatMap((card) => (card.parts ?? []).filter((part) => part.type === "blank").map((part) => part.id)));
+// Uploaded photos and recordings carry a mediaId pointing at their bytes in IndexedDB; their
+// object URLs only live for this page load, so they are dropped when saving and rebuilt on load.
+const withoutMediaUrl = (item) => (item?.mediaId ? { ...item, url: "" } : item);
+const mapCardMedia = (cards, map) => Object.fromEntries(Object.entries(cards).map(([page, list]) => [page, list.map((card) => (card.parts
+  ? { ...card, parts: card.parts.map((part) => (part.photo || part.audio ? { ...part, photo: part.photo && map(part.photo), audio: part.audio && map(part.audio) } : part)) }
+  : card))]));
+const newMediaId = (kind) => `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const CARET_ANCHOR = "​";
 const withoutCaretAnchor = (value) => value.replaceAll(CARET_ANCHOR, "");
 const GUIDE_SENTENCE_CARDS = [
@@ -118,11 +129,15 @@ const SAMPLE_PHOTOS = [{
 const MANAGE_THUMBNAILS = Array.from({ length: 12 }, (_, index) => icon(`manage-thumb-${String(index + 1).padStart(2, "0")}.webp`));
 const MANAGE_LIBRARY_PHOTOS = MANAGE_THUMBNAILS.map((url, index) => ({ id: `library-photo-${index + 1}`, name: `素材 ${index + 1}`, url }));
 
-export default function App({ initialTitle, onExit }) {
-  const [pageCount, setPageCount] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sentenceCards, setSentenceCards] = useState({ 1: GUIDE_SENTENCE_CARDS });
-  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState({ 1: 1 });
+export default function App({ notebookId, initialTitle, onExit, onTitleChange }) {
+  // Read once per notebook (App is keyed by notebook): this notebook's save, and the word/photo/
+  // audio library every notebook shares.
+  const [saved] = useState(() => loadJSON(notebookKey(notebookId)));
+  const [savedLibrary] = useState(() => loadJSON(LIBRARY_KEY));
+  const [pageCount, setPageCount] = useState(saved?.pageCount ?? 1);
+  const [currentPage, setCurrentPage] = useState(() => Math.min(saved?.currentPage ?? 1, saved?.pageCount ?? 1));
+  const [sentenceCards, setSentenceCards] = useState(saved?.sentenceCards ?? { 1: GUIDE_SENTENCE_CARDS });
+  const [activeSentenceIndexes, setActiveSentenceIndexes] = useState(saved?.activeSentenceIndexes ?? { 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);
   const [editorMode, setEditorMode] = useState("word");
@@ -175,38 +190,38 @@ export default function App({ initialTitle, onExit }) {
   }, [blankEditor?.id, editorMode, sentencePicker?.index]);
   const [selectedWordCategory, setSelectedWordCategory] = useState("全部");
   const [wordSearch, setWordSearch] = useState("");
-  const [hasSeedSentence, setHasSeedSentence] = useState(true);
+  const [hasSeedSentence, setHasSeedSentence] = useState(saved?.hasSeedSentence ?? true);
   const [isPageOverviewOpen, setIsPageOverviewOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [manageSection, setManageSection] = useState("images");
   const [libraryCategory, setLibraryCategory] = useState("全部");
-  const [customLibraryCategories, setCustomLibraryCategories] = useState([]);
+  const [customLibraryCategories, setCustomLibraryCategories] = useState(savedLibrary?.customLibraryCategories ?? []);
   const [isAddingLibraryCategory, setIsAddingLibraryCategory] = useState(false);
   const [newLibraryCategory, setNewLibraryCategory] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryWords, setLibraryWords] = useState(["十月", "秋天", "黄昏", "霜", "星期二"]);
+  const [libraryWords, setLibraryWords] = useState(savedLibrary?.libraryWords ?? ["十月", "秋天", "黄昏", "霜", "星期二"]);
   const [newLibraryWord, setNewLibraryWord] = useState("");
-  const [pageTone, setPageTone] = useState("#fbfaf6");
-  const [cardTone, setCardTone] = useState("#ffffff");
-  const [inkTone, setInkTone] = useState("#242222");
-  const [pagePattern, setPagePattern] = useState("plain");
+  const [pageTone, setPageTone] = useState(saved?.pageTone ?? "#fbfaf6");
+  const [cardTone, setCardTone] = useState(saved?.cardTone ?? "#ffffff");
+  const [inkTone, setInkTone] = useState(saved?.inkTone ?? "#242222");
+  const [pagePattern, setPagePattern] = useState(saved?.pagePattern ?? "plain");
   const [selectedSpreads, setSelectedSpreads] = useState([]);
   const [isCapsuleDateOpen, setIsCapsuleDateOpen] = useState(false);
   const [capsuleMonth, setCapsuleMonth] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth() }));
   // [start, end] date keys of the sealing period; the capsule opens on the end date.
   const [capsuleRange, setCapsuleRange] = useState(() => [dateKey(new Date()), dateKey(addDays(new Date(), 21))]);
   // { id, spreads: [first page of each sealed spread], openAt: date key }
-  const [capsules, setCapsules] = useState([]);
+  const [capsules, setCapsules] = useState(saved?.capsules ?? []);
   const [overviewNotice, setOverviewNotice] = useState("");
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
-  const [recentPhotos, setRecentPhotos] = useState([]);
-  const [audioClips, setAudioClips] = useState([]);
+  const [recentPhotos, setRecentPhotos] = useState(savedLibrary?.recentPhotos ?? []);
+  const [audioClips, setAudioClips] = useState(savedLibrary?.audioClips ?? []);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingNotice, setRecordingNotice] = useState("");
   const [sentenceLineCounts, setSentenceLineCounts] = useState({});
   const [sentenceContentHeights, setSentenceContentHeights] = useState({});
-  const blankId = useRef(5);
+  const blankId = useRef(maxBlankId(saved?.sentenceCards));
   const pendingSentenceFocus = useRef(null);
   const pendingBlankCaret = useRef(null);
   const pendingCaretOffset = useRef(null);
@@ -228,7 +243,7 @@ export default function App({ initialTitle, onExit }) {
   const suppressPageClick = useRef(false);
   // The header <h1> stays uncontrolled (re-rendering a contentEditable's text moves the
   // caret), so it renders a fixed initial value and reports edits into notebookTitle.
-  const [initialTitleText] = useState(initialTitle || "无标题");
+  const [initialTitleText] = useState(saved?.title || initialTitle || "无标题");
   const [notebookTitle, setNotebookTitle] = useState(initialTitleText);
   const [toolbarPosition, setToolbarPosition] = useState(null);
   const [isEditingCard, setIsEditingCard] = useState(false);
@@ -254,8 +269,10 @@ export default function App({ initialTitle, onExit }) {
     if (!images.length) return;
     const nextPhotos = images.map((file) => {
       const url = URL.createObjectURL(file);
+      const mediaId = newMediaId("photo");
       photoUrls.current.add(url);
-      return { id: `${file.name}-${file.lastModified}-${url}`, url, name: file.name || "已选图片" };
+      saveMedia(mediaId, file);
+      return { id: `${file.name}-${file.lastModified}-${url}`, url, name: file.name || "已选图片", mediaId };
     });
     setRecentPhotos((photos) => [...nextPhotos, ...photos].slice(0, 12));
   };
@@ -268,7 +285,7 @@ export default function App({ initialTitle, onExit }) {
       [page]: (cards[page] ?? []).map((card, cardIndex) => cardIndex !== index ? card : {
         ...card,
         parts: cardParts(card).map((part) => part.type === "blank" && part.id === id
-          ? { ...part, value: "", audio: undefined, photo: { url: photo.url, name: photo.name } }
+          ? { ...part, value: "", audio: undefined, photo: { url: photo.url, name: photo.name, mediaId: photo.mediaId } }
           : part),
       }),
     }));
@@ -283,7 +300,7 @@ export default function App({ initialTitle, onExit }) {
       [page]: (cards[page] ?? []).map((card, cardIndex) => cardIndex !== index ? card : {
         ...card,
         parts: cardParts(card).map((part) => part.type === "blank" && part.id === id
-          ? { ...part, value: "", photo: undefined, audio: { url: clip.url, duration: clip.duration, waveform: clip.waveform } }
+          ? { ...part, value: "", photo: undefined, audio: { url: clip.url, duration: clip.duration, waveform: clip.waveform, mediaId: clip.mediaId } }
           : part),
       }),
     }));
@@ -330,9 +347,11 @@ export default function App({ initialTitle, onExit }) {
         if (chunks.length) {
           const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
           const url = URL.createObjectURL(blob);
+          const mediaId = newMediaId("audio");
           const waveform = await extractAudioWaveform(blob);
           audioUrls.current.add(url);
-          setAudioClips((clips) => [{ id: `${Date.now()}-${url}`, url, duration, waveform }, ...clips].slice(0, 8));
+          saveMedia(mediaId, blob);
+          setAudioClips((clips) => [{ id: `${Date.now()}-${url}`, url, duration, waveform, mediaId }, ...clips].slice(0, 8));
           setRecordingNotice("");
         }
         audioRecorder.current = null;
@@ -877,7 +896,7 @@ export default function App({ initialTitle, onExit }) {
           >
             {part.photo ? <>
               <img className="photo-card-frame" src={icon("photo-card.svg")} alt="" draggable={false} />
-              <img className="photo-card-image" src={part.photo.url} alt={part.photo.name} draggable={false} />
+              <img className="photo-card-image" src={part.photo.url || undefined} alt={part.photo.name} draggable={false} />
             </> : part.audio ? <>
               <i className="audio-waveform" aria-hidden="true">{(part.audio.waveform ?? AUDIO_WAVEFORM).map((height, index) => <em key={index} style={{ height }} />)}</i><span>{formatDuration(part.audio.duration)}</span>
               <img
@@ -1047,6 +1066,92 @@ export default function App({ initialTitle, onExit }) {
       observer.disconnect();
     };
   }, [currentPage, currentSentenceCards]);
+
+  /* ---------- saving ---------- */
+  // Writes this notebook and the shared library. With `includeLiveEdit`, the card being typed in is
+  // read from the DOM too, since typing only reaches state when the card blurs.
+  const writeSave = (includeLiveEdit) => {
+    let cards = sentenceCards;
+    const editing = includeLiveEdit ? document.activeElement?.closest?.(".sentence-text") : null;
+    if (editing && sentenceAreaRef.current?.contains(editing)) {
+      const index = Number(editing.dataset.sentenceIndex);
+      cards = { ...cards, [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) => (cardIndex === index ? { ...card, parts: partsFromElement(index, editing) } : card)) };
+    }
+    saveJSON(notebookKey(notebookId), {
+      version: 1,
+      pageCount,
+      currentPage,
+      sentenceCards: mapCardMedia(cards, withoutMediaUrl),
+      activeSentenceIndexes,
+      capsules,
+      title: notebookTitle,
+      pageTone,
+      cardTone,
+      inkTone,
+      pagePattern,
+      hasSeedSentence,
+    });
+    saveJSON(LIBRARY_KEY, {
+      version: 1,
+      libraryWords,
+      customLibraryCategories,
+      recentPhotos: recentPhotos.map(withoutMediaUrl),
+      audioClips: audioClips.map(withoutMediaUrl),
+    });
+  };
+  const writeSaveRef = useRef(writeSave);
+  writeSaveRef.current = writeSave;
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      writeSaveRef.current(false);
+      onTitleChangeRef.current?.(notebookTitle || "无标题");
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips]);
+
+  // Closing the tab, backgrounding the app or leaving the notebook can't wait for the debounce.
+  useEffect(() => {
+    const flush = () => writeSaveRef.current(true);
+    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
+    };
+  }, []);
+
+  // Rebuild object URLs for saved photos and recordings from IndexedDB.
+  useEffect(() => {
+    const ids = new Set();
+    const collect = (item) => { if (item?.mediaId && !item.url) ids.add(item.mediaId); return item; };
+    mapCardMedia(sentenceCards, collect);
+    recentPhotos.forEach(collect);
+    audioClips.forEach(collect);
+    if (!ids.size) return undefined;
+    let cancelled = false;
+    (async () => {
+      const urls = {};
+      for (const id of ids) {
+        const blob = await loadMedia(id);
+        if (blob) urls[id] = URL.createObjectURL(blob);
+      }
+      if (cancelled) {
+        Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
+        return;
+      }
+      Object.entries(urls).forEach(([id, url]) => (id.startsWith("audio") ? audioUrls : photoUrls).current.add(url));
+      const fill = (item) => (item?.mediaId && urls[item.mediaId] ? { ...item, url: urls[item.mediaId] } : item);
+      setSentenceCards((cards) => mapCardMedia(cards, fill));
+      setRecentPhotos((photos) => photos.map(fill));
+      setAudioClips((clips) => clips.map(fill));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const canSwipePages = !blankEditor && !sentencePicker && !selectedWord && !isManageOpen && !isPageOverviewOpen && !isShareOpen;
   const ghostPage = pageSwipeMode === "prev" ? currentPage - 1 : currentPage + 1;
@@ -1890,7 +1995,7 @@ export default function App({ initialTitle, onExit }) {
                   <div className="recent-photo-grid">
                     {[...recentPhotos, ...SAMPLE_PHOTOS, ...MANAGE_LIBRARY_PHOTOS].map((photo) => (
                       <button key={photo.id} type="button" className={`uploaded-photo${photo.id === "default-photo" ? " is-pre-rotated" : ""}`} aria-label={`选择图片：${photo.name}`} onClick={() => insertPhotoCard(photo)}>
-                        <img src={photo.url} alt="" />
+                        <img src={photo.url || undefined} alt="" />
                       </button>
                     ))}
                   </div>
@@ -1943,7 +2048,7 @@ export default function App({ initialTitle, onExit }) {
             <h2>{{ sentences: "句卡管理", words: "词卡管理", images: "图片管理", audio: "音频管理", settings: "内页与颜色" }[manageSection]}</h2>
             {manageSection === "images" ? <>
               <div className="manage-grid" aria-label="图片素材">
-                {managedPhotos.map((photo) => <img key={photo.id} src={photo.url} alt={photo.name} />)}
+                {managedPhotos.map((photo) => <img key={photo.id} src={photo.url || undefined} alt={photo.name} />)}
                 <button className="manage-add" type="button" aria-label="添加图片" onClick={() => managePhotoInput.current?.click()}>+</button>
               </div>
               <input

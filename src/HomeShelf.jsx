@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { IMG } from "./homeShelfAssets.js";
 import "./home-shelf.css";
+import { SHELF_KEY, loadJSON, notebookKey, removeSaved, saveJSON } from "./storage";
 
 // Ported near-verbatim from public/prototypes/home-shelf/index.html (the standalone shelf
 // prototype) so the hand-tuned physics/geometry (spring inertia, silhouette gap solving,
@@ -208,15 +209,27 @@ function initShelf(onOpenNotebookRef, signal) {
   // pin every book's leaning ("closed") lowest point to the SAME y as its standing ("open") lowest point (=BOT), so the
   // 10px book-to-line gap holds whether it's leaning or standing, and it can never touch the line either way
   const TOP_BOT = 397, BOTTOM_BOT = 397 + BOT_STEP;
-  for (const b of TOP_BOOKS) b.yc = TOP_BOT - vext(b.T, b.H, b.phi) / 2;
-  for (const b of BOT_BOOKS) b.yc = BOTTOM_BOT - vext(b.T, b.H, b.phi) / 2;
+
+  /* ---------- saved shelves: which notebooks each shelf holds, their titles, and user-made notebooks' looks ---------- */
+  const saved = loadJSON(SHELF_KEY);
+  const FIGMA_BOOKS = Object.fromEntries(TOP_BOOKS.concat(BOT_BOOKS).map(b => [b.id, b]));
+  const restoreBook = s => FIGMA_BOOKS[s.id]
+    ? Object.assign(FIGMA_BOOKS[s.id], { title: s.title || FIGMA_BOOKS[s.id].title })
+    : { id: s.id, T: s.T, H: s.H, phi: s.phi, col: s.col, tc: s.tc, title: s.title, coverImg: s.coverImg || null };
+  const savedShelves = Array.isArray(saved?.shelves) ? saved.shelves.map(list => (Array.isArray(list) ? list.filter(s => s && s.id).map(restoreBook) : [])) : [];
+  const shelfBooks = (index, original) => (savedShelves[index]?.length ? savedShelves[index] : original);
+  const sameIds = (a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id);
+  const topBooks = shelfBooks(0, TOP_BOOKS), botBooks = shelfBooks(1, BOT_BOOKS);
+  for (const b of topBooks) b.yc = TOP_BOT - vext(b.T, b.H, b.phi) / 2;
+  for (const b of botBooks) b.yc = BOTTOM_BOT - vext(b.T, b.H, b.phi) / 2;
+  const noClr = () => ({ closed: [], openL: [], openR: [] });   // the Figma-measured clearances only fit the original line-up
   const TOP = makeShelf({
-    row: $('row'), books: TOP_BOOKS, BOT: TOP_BOT, CX: 197.5, X0: 0, pos0: 2, k0: 1,
-    clr: { closed: [3, 9, 4, 3, 6], openL: [3, 9, 1, 3, 6], openR: [3, 15, 4, 3, 6] }
+    row: $('row'), books: topBooks, BOT: TOP_BOT, CX: 197.5, X0: 0, pos0: Math.min(2, topBooks.length - 1), k0: 1,
+    clr: sameIds(topBooks, TOP_BOOKS) ? { closed: [3, 9, 4, 3, 6], openL: [3, 9, 1, 3, 6], openR: [3, 15, 4, 3, 6] } : noClr()
   });   // closest silhouette distance per neighbouring pair, measured in Figma
   const BOTTOM = makeShelf({
-    row: $('row2'), books: BOT_BOOKS, BOT: BOTTOM_BOT, CX: 197.5, X0: 10.92, pos0: 2, k0: 0,
-    clr: { closed: [11, 15, 3, 5, 6], openL: [11, 15, 3, 5, 6], openR: [11, 15, 3, 5, 6] }
+    row: $('row2'), books: botBooks, BOT: BOTTOM_BOT, CX: 197.5, X0: 10.92, pos0: Math.min(2, botBooks.length - 1), k0: 0,
+    clr: sameIds(botBooks, BOT_BOOKS) ? { closed: [11, 15, 3, 5, 6], openL: [11, 15, 3, 5, 6], openR: [11, 15, 3, 5, 6] } : noClr()
   });
   let activeShelf = TOP;
 
@@ -234,7 +247,19 @@ function initShelf(onOpenNotebookRef, signal) {
   const NEW_PALETTE = [{ col: '#3d8a4f', tc: '#fdfdfb' }, { col: '#c8577a', tc: '#fdfdfb' }, { col: '#3a4f84', tc: '#ffce5d' },
   { col: '#e0632c', tc: '#fdfdfb' }, { col: '#6a6a6a', tc: '#fdfdfb' }, { col: '#8a5cb0', tc: '#fdfdfb' }, { col: '#1f9c96', tc: '#fdfdfb' }];
   const SIZE_POOL = TOP_BOOKS.concat(BOT_BOOKS).map(b => ({ T: b.T, H: b.H }));   // a new notebook's size is drawn from the 10 that already exist
-  let newBookSeq = 0;
+  let newBookSeq = Number(saved?.newBookSeq) || 0;
+  function persistShelf() {
+    const shelves = [TOP, BOTTOM, ...extraShelves].map(S => S.books.map(b => (FIGMA_BOOKS[b.id]
+      ? { id: b.id, title: b.title }
+      : { id: b.id, title: b.title, T: b.T, H: b.H, phi: b.phi, col: b.col, tc: b.tc, coverImg: b.coverImg || null })));
+    if (!saveJSON(SHELF_KEY, { version: 1, newBookSeq, shelves })) toast('保存失败：浏览器存储空间不足');
+  }
+  function renameNotebook(id, title) {
+    for (const S of [TOP, BOTTOM, ...extraShelves]) {
+      const b = S.books.find(x => x.id === id);
+      if (b && title && b.title !== title) { b.title = title; S.rebuild(); persistShelf(); }
+    }
+  }
   function makeNewBookSpec() {
     const p = NEW_PALETTE[newBookSeq % NEW_PALETTE.length];
     const sz = SIZE_POOL[Math.floor(Math.random() * SIZE_POOL.length)];
@@ -267,6 +292,12 @@ function initShelf(onOpenNotebookRef, signal) {
     const shelfNo = extraShelves.indexOf(target) + 3;                     // shelves 1 and 2 are the original two
     toast((isNewShelf ? '新建第 ' + shelfNo + ' 层书架 · ' : '已加入第 ' + shelfNo + ' 层书架 · ') + spec.title);
     if (isNewShelf) shelvesWrap.scrollBy({ top: BOT_STEP, behavior: 'smooth' });   // the page now exceeds 2 shelves: page up by exactly one shelf's worth
+    persistShelf();
+  }
+  for (const list of savedShelves.slice(2)) {                // shelves the user grew last time
+    if (!list.length) continue;
+    const S = createShelf();
+    for (const b of list) S.pushBook(b);
   }
 
   /* ---------- input ---------- */
@@ -330,6 +361,7 @@ function initShelf(onOpenNotebookRef, signal) {
     modalRoot.querySelector('.mCancel').addEventListener('click', closeModal);
     modalRoot.querySelector('.mDanger').addEventListener('click', () => {
       const ok = S.removeBook(v); closeModal();
+      if (ok) { removeSaved(notebookKey(b.id)); persistShelf(); }
       toast(ok ? '已删除「' + b.title + '」' : '每层至少保留 1 本笔记本');
     });
   }
@@ -403,7 +435,7 @@ function initShelf(onOpenNotebookRef, signal) {
     modalRoot.querySelector('.mSave').addEventListener('click', () => {
       const t = input.value.trim();
       b.title = t || b.title; b.col = chosen.col; b.tc = chosen.tc; b.coverImg = coverImg;
-      S.rebuild(); closeModal(); toast('已保存');
+      S.rebuild(); closeModal(); persistShelf(); toast('已保存');
     });
   }
 
@@ -509,18 +541,20 @@ function initShelf(onOpenNotebookRef, signal) {
     navEl.appendChild(b); return b;
   });
 
-  return { TOP, BOTTOM, extraShelves, extraNodes, navEl, modalRoot, getToastTimer: () => toastT };
+  return { TOP, BOTTOM, extraShelves, extraNodes, navEl, modalRoot, renameNotebook, getToastTimer: () => toastT };
 }
 
-export default function HomeShelf({ onOpenNotebook }) {
+export default function HomeShelf({ onOpenNotebook, apiRef }) {
   const onOpenNotebookRef = useRef(onOpenNotebook);
   onOpenNotebookRef.current = onOpenNotebook;
 
   useEffect(() => {
     const controller = new AbortController();
     const handles = initShelf(onOpenNotebookRef, controller.signal);
+    if (apiRef) apiRef.current = { renameNotebook: handles.renameNotebook };
     return () => {
       controller.abort();
+      if (apiRef) apiRef.current = null;
       [handles.TOP, handles.BOTTOM, ...handles.extraShelves].forEach((S) => {
         if (S.raf) cancelAnimationFrame(S.raf);
       });
