@@ -58,3 +58,55 @@ const mediaRequest = async (mode, run) => {
 
 export const saveMedia = (id, blob) => mediaRequest("readwrite", (store) => store.put(blob, id)).catch(() => undefined);
 export const loadMedia = (id) => mediaRequest("readonly", (store) => store.get(id)).catch(() => undefined);
+
+/* ---------- whole-app backup (settings page) ---------- */
+const savedKeys = () => {
+  try {
+    return Object.keys(window.localStorage).filter((key) => key.startsWith(PREFIX));
+  } catch {
+    return [];
+  }
+};
+
+// Bytes used by the saved JSON (UTF-16, as the browser counts it) and by the media blobs.
+export const storageUsage = async () => {
+  const json = savedKeys().reduce((sum, key) => sum + (key.length + (window.localStorage.getItem(key)?.length ?? 0)) * 2, 0);
+  const blobs = await mediaRequest("readonly", (store) => store.getAll()).catch(() => []);
+  return { json, media: blobs.reduce((sum, blob) => sum + (blob?.size ?? 0), 0), mediaCount: blobs.length };
+};
+
+const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsDataURL(blob);
+});
+
+export const exportBackup = async () => {
+  const data = Object.fromEntries(savedKeys().map((key) => [key, window.localStorage.getItem(key)]));
+  const [ids, blobs] = await Promise.all([
+    mediaRequest("readonly", (store) => store.getAllKeys()).catch(() => []),
+    mediaRequest("readonly", (store) => store.getAll()).catch(() => []),
+  ]);
+  const media = {};
+  for (let i = 0; i < ids.length; i++) if (blobs[i]) media[ids[i]] = await blobToDataUrl(blobs[i]);
+  return { app: "between-lines", version: 1, exportedAt: new Date().toISOString(), data, media };
+};
+
+export const clearAllSaved = async () => {
+  savedKeys().forEach(removeSaved);
+  await mediaRequest("readwrite", (store) => store.clear()).catch(() => undefined);
+};
+
+// Replaces everything saved with the backup's contents; throws if the file isn't a backup.
+export const importBackup = async (backup) => {
+  if (backup?.app !== "between-lines" || typeof backup.data !== "object") throw new Error("not a Between Lines backup");
+  await clearAllSaved();
+  for (const [key, value] of Object.entries(backup.data)) {
+    if (key.startsWith(PREFIX) && typeof value === "string") window.localStorage.setItem(key, value);
+  }
+  for (const [id, url] of Object.entries(backup.media ?? {})) {
+    const blob = await fetch(url).then((response) => response.blob()).catch(() => null);
+    if (blob) await saveMedia(id, blob);
+  }
+};

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { IMG } from "./homeShelfAssets.js";
 import "./home-shelf.css";
 import { SAMPLE_CAPSULES } from "./sampleCapsules";
-import { SHELF_KEY, loadJSON, notebookKey, removeSaved, saveJSON } from "./storage";
+import { LIBRARY_KEY, SHELF_KEY, clearAllSaved, exportBackup, importBackup, loadJSON, notebookKey, removeSaved, saveJSON, storageUsage } from "./storage";
 
 // Ported near-verbatim from public/prototypes/home-shelf/index.html (the standalone shelf
 // prototype) so the hand-tuned physics/geometry (spring inertia, silhouette gap solving,
@@ -376,6 +376,86 @@ function initShelf(onOpenNotebookRef, signal) {
       openFromSearch(x.n, x.page);
     }));
   }
+  /* ---------- settings tab: what's saved on this device, backup / restore, reset ---------- */
+  const fmtBytes = n => n < 1024 ? n + ' B' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  function hiddenLibraryCount() {
+    const h = loadJSON(LIBRARY_KEY)?.hiddenLibrary;
+    return h ? ['sentences', 'words', 'photos'].reduce((sum, k) => sum + (h[k]?.length ?? 0), 0) : 0;
+  }
+  function settingsConfirm(title, body, action, onConfirm) {           // swaps the settings card for a confirm step
+    const card = modalRoot.querySelector('.settingsCard');
+    card.innerHTML = `<h3>${esc(title)}</h3><p>${esc(body)}</p>
+      <div class="modalBtns"><button type="button" class="mCancel">取消</button><button type="button" class="mDanger">${esc(action)}</button></div>`;
+    card.querySelector('.mCancel').addEventListener('click', () => renderSettings(card));
+    card.querySelector('.mDanger').addEventListener('click', async e => { e.currentTarget.disabled = true; await onConfirm(); });
+  }
+  function renderSettings(card) {
+    const hidden = hiddenLibraryCount();
+    card.innerHTML = `<h3>设置</h3>
+      <section class="setSec">
+        <h4>保存</h4>
+        <p>所有内容都会自动保存在这台设备的浏览器里，不会上传。换设备或清理浏览器前，先导出一份备份。</p>
+        <p class="setUsage">书架上 ${allNotebooks().length} 本笔记本 · <span>正在统计…</span></p>
+        <div class="setBtns"><button type="button" class="setBtn isDark" data-act="export">导出备份</button><button type="button" class="setBtn" data-act="import">导入备份</button></div>
+        <input type="file" accept="application/json,.json" class="setFile" hidden>
+      </section>
+      <section class="setSec">
+        <h4>词库</h4>
+        <p>${hidden ? `已删除 ${hidden} 个自带的句卡、词卡或图片。` : '自带的句卡、词卡和图片都还在。'}</p>
+        <div class="setBtns"><button type="button" class="setBtn" data-act="restore" ${hidden ? '' : 'disabled'}>恢复自带内容</button></div>
+      </section>
+      <section class="setSec">
+        <h4>重置</h4>
+        <p>删除所有笔记本、句卡、图片和录音，回到第一次打开的样子。</p>
+        <div class="setBtns"><button type="button" class="setBtn isDanger" data-act="clear">清除所有数据</button></div>
+      </section>
+      <p class="setAbout">Between Lines · 拼贴诗笔记本</p>`;
+    storageUsage().then(u => {
+      const span = card.querySelector('.setUsage span');
+      if (span) span.textContent = `文字 ${fmtBytes(u.json)} · 图片和录音 ${u.mediaCount} 个，${fmtBytes(u.media)}`;
+    });
+    const fileInput = card.querySelector('.setFile');
+    card.querySelector('[data-act="export"]').addEventListener('click', async e => {
+      const btn = e.currentTarget; btn.disabled = true; btn.textContent = '正在打包…';
+      try {
+        const backup = await exportBackup();
+        const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }));
+        const d = new Date(), a = document.createElement('a');
+        a.href = url; a.download = `between-lines-备份-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast('备份已导出');
+      } catch { toast('导出失败，请再试一次'); }
+      btn.disabled = false; btn.textContent = '导出备份';
+    });
+    card.querySelector('[data-act="import"]').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0]; fileInput.value = ''; if (!file) return;
+      let backup;
+      try { backup = JSON.parse(await file.text()); if (backup?.app !== 'between-lines') throw 0; }
+      catch { toast('这不是 Between Lines 的备份文件'); return; }
+      settingsConfirm('导入这份备份？', '现在保存的所有内容会被备份里的内容替换。', '导入', async () => {
+        try { await importBackup(backup); window.location.reload(); }
+        catch { toast('导入失败：浏览器存储空间不足'); renderSettings(card); }
+      });
+    });
+    card.querySelector('[data-act="restore"]').addEventListener('click', () => {
+      const lib = loadJSON(LIBRARY_KEY) ?? {};
+      saveJSON(LIBRARY_KEY, { ...lib, hiddenLibrary: { sentences: [], words: [], photos: [] } });
+      toast('自带内容已恢复'); renderSettings(card);
+    });
+    card.querySelector('[data-act="clear"]').addEventListener('click', () => settingsConfirm('清除所有数据？', '所有笔记本、句卡、图片和录音都会被删除，无法恢复。建议先导出备份。', '全部清除', async () => {
+      await clearAllSaved(); window.location.reload();
+    }));
+  }
+  function openSettings(navButton) {
+    modalRoot.style.pointerEvents = 'auto';
+    modalRoot.innerHTML = `<div class="modalBack searchBack"><div class="modalCard searchCard settingsCard" role="dialog" aria-label="设置"></div></div>`;
+    onModalClose = () => navButton.setAttribute('aria-pressed', 'false');
+    const back = modalRoot.querySelector('.modalBack');
+    back.addEventListener('click', e => { if (e.target === back) closeModal(); });
+    renderSettings(modalRoot.querySelector('.settingsCard'));
+  }
   function confirmDelete(S, v) {
     const b = S.books[mod(v, S.N)];
     modalRoot.style.pointerEvents = 'auto';
@@ -557,6 +637,7 @@ function initShelf(onOpenNotebookRef, signal) {
         navBtns.forEach(x => { if (x.dataset.tab === '1') x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
         if (n.k === 'search') openSearch(b);
         else if (n.k === 'clock') openCapsules(b);
+        else if (n.k === 'gear') openSettings(b);
         else toast(n.label + ' — 对应页面下一步做');
       } else {                                            // "add notebook": flash the highlighted state, then release; the tab selection is untouched
         if (b.dataset.busy) return;                      // guards against a double-tap / "ghost click" adding more than one notebook

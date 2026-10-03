@@ -155,3 +155,17 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .capsuleHit em{flex:none;padding:4px 8px;border-radius:999px;background:#1e2026;color:#fff;font-style:normal;font-size:11px;font-family:var(--marker)}
 .capsuleHit.isOpen em{background:#efe7db;color:#1e2026}
 .capsuleListCard .searchEmpty{line-height:1.7}
+/* settings tab */
+.settingsCard{padding:16px 18px 14px}
+.settingsCard h3{margin:0 0 4px;font-size:18px}
+.setSec{padding:12px 0;border-bottom:1px solid #e4dfd2}
+.setSec:last-of-type{border-bottom:0}
+.setSec h4{margin:0 0 5px;font-family:var(--marker);font-size:14px;font-weight:400;color:#1d1c18}
+.settingsCard .setSec p{margin:0 0 9px;font-size:12px;line-height:1.55;color:#8b867c}
+.settingsCard .setSec p.setUsage{color:#5d594f}
+.setBtns{display:flex;gap:8px}
+.setBtn{flex:1;border:0;border-radius:18px;padding:8px 0;background:#e7e2d4;color:#1d1c18;font-family:var(--marker);font-size:14px;cursor:pointer}
+.setBtn.isDark{background:#171a16;color:#fff}
+.setBtn.isDanger{background:transparent;color:#b53a2f;box-shadow:inset 0 0 0 1.5px #b53a2f}
+.setBtn:disabled{opacity:.45;cursor:default}
+.settingsCard p.setAbout{margin:8px 0 0;text-align:center;font-size:11px;color:#b1ac9f}
