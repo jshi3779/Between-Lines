@@ -190,6 +190,8 @@ export default function App({ initialTitle, onExit }) {
   const [sentenceContentHeights, setSentenceContentHeights] = useState({});
   const blankId = useRef(5);
   const pendingSentenceFocus = useRef(null);
+  const pendingBlankCaret = useRef(null);
+  const pendingCaretOffset = useRef(null);
   const dialogInput = useRef(null);
   const skipSentenceBlur = useRef(new Set());
   const cameraInput = useRef(null);
@@ -421,8 +423,8 @@ export default function App({ initialTitle, onExit }) {
     let offset = 0;
     let node = walker.nextNode();
     while (node) {
-      if (node === targetNode) return offset + targetOffset;
-      offset += node.textContent.length;
+      if (node === targetNode) return offset + withoutCaretAnchor(node.textContent.slice(0, targetOffset)).length;
+      offset += withoutCaretAnchor(node.textContent).length;
       node = walker.nextNode();
     }
     return null;
@@ -438,7 +440,7 @@ export default function App({ initialTitle, onExit }) {
     const range = selection.getRangeAt(0);
     if (!element.contains(range.startContainer) || !element.contains(range.endContainer)) return;
 
-    const rawWord = selection.toString();
+    const rawWord = withoutCaretAnchor(selection.toString());
     const word = rawWord.trim();
     if (!word || /\s/.test(word)) return;
 
@@ -537,7 +539,7 @@ export default function App({ initialTitle, onExit }) {
         const localRange = document.createRange();
         localRange.selectNodeContents(child);
         localRange.setEnd(range.startContainer, range.startOffset);
-        return offset + localRange.toString().length;
+        return offset + withoutCaretAnchor(localRange.toString()).length;
       }
       if (child instanceof HTMLElement && child.classList.contains("blank-word-card")) {
         const id = Number(child.dataset.blankId);
@@ -545,7 +547,7 @@ export default function App({ initialTitle, onExit }) {
           .find((item) => item.type === "blank" && item.id === id);
         offset += part?.value.length ?? 0;
       } else {
-        offset += child.textContent?.length ?? 0;
+        offset += withoutCaretAnchor(child.textContent ?? "").length;
       }
     }
     return offset;
@@ -606,23 +608,7 @@ export default function App({ initialTitle, onExit }) {
           : card,
       ),
     }));
-    requestAnimationFrame(() => {
-      const nextCard = document.querySelector(`[data-blank-id="${id}"]`);
-      const sentence = nextCard?.closest(".sentence-text");
-      if (!nextCard || !sentence) return;
-      sentence.focus();
-      const selection = window.getSelection();
-      const nextRange = document.createRange();
-      // A caret "after" a non-editable blank with no text behind it is snapped back by the
-      // browser into the text before the blank, so typing would land on the wrong side. Give
-      // it a zero-width space to sit in; CARET_ANCHOR is stripped when the sentence is read.
-      if (!(nextCard.nextSibling instanceof Text)) nextCard.after(document.createTextNode(CARET_ANCHOR));
-      const anchor = nextCard.nextSibling;
-      nextRange.setStart(anchor, anchor.textContent.startsWith(CARET_ANCHOR) ? 1 : 0);
-      nextRange.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(nextRange);
-    });
+    pendingBlankCaret.current = id;
   };
 
   // The persistent toolbar's 词卡/图片/音频 buttons all insert a blank at the caret in the
@@ -647,6 +633,7 @@ export default function App({ initialTitle, onExit }) {
 
     insertBlankWordCard(index, element, range);
     const id = blankId.current;
+    pendingBlankCaret.current = null;                     // the panel's input takes focus, not the sentence
     setSentencePicker(null);
     setEditorMode(mode);
     // Opened from a toolbar button for one content type, so no type tabs; tapping an existing
@@ -717,29 +704,26 @@ export default function App({ initialTitle, onExit }) {
     setIsEditingCard(true);
   };
 
-  const removeBlankWordCard = (index, id, childIndex) => {
+  // Reads the sentence from the DOM rather than saved state, so text typed after the blank but
+  // not yet saved (that happens on blur) isn't dropped, and puts the caret where the blank was.
+  const removeBlankWordCard = (index, id, element, range) => {
+    const sourceParts = partsFromElement(index, element);
+    const removed = sourceParts.find((part) => part.type === "blank" && part.id === id);
+    const caretOffset = modelOffsetAtCaret(element, range) - (removed?.value.length ?? 0);
+    const parts = sourceParts
+      .filter((part) => part !== removed)
+      .reduce((result, part) => {
+        const previous = result.at(-1);
+        if (part.type === "text" && previous?.type === "text") result[result.length - 1] = textPart(previous.value + part.value);
+        else result.push(part);
+        return result;
+      }, []);
     skipSentenceBlur.current.add(`${currentPage}-${index}`);
+    pendingCaretOffset.current = { page: currentPage, index, offset: Math.max(0, caretOffset) };
     setSentenceCards((cards) => ({
       ...cards,
-      [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) => cardIndex === index
-        ? { ...card, parts: cardParts(card).filter((part) => !(part.type === "blank" && part.id === id)) }
-        : card),
+      [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) => (cardIndex === index ? { ...card, parts } : card)),
     }));
-    requestAnimationFrame(() => {
-      const sentence = document.querySelector(`[data-sentence-index="${index}"]`);
-      if (!sentence) return;
-      sentence.focus();
-      const selection = window.getSelection();
-      const nextRange = document.createRange();
-      const nextNode = sentence.childNodes[childIndex];
-      if (nextNode) nextRange.setStartBefore(nextNode);
-      else {
-        nextRange.selectNodeContents(sentence);
-        nextRange.collapse(false);
-      }
-      selection.removeAllRanges();
-      selection.addRange(nextRange);
-    });
   };
 
   const moveBlankContent = (sourceIndex, sourceId, targetIndex, targetId) => {
@@ -911,6 +895,69 @@ export default function App({ initialTitle, onExit }) {
   const sentenceLibrary = [...new Set([...SENTENCE_LIBRARY, ...writtenSentences])];
   const sheetMode = sentencePicker ? "sentence" : editorMode;
   const showTypeTabs = Boolean(blankEditor && !blankEditor.single);
+
+  // Put the caret after a just-inserted blank in the same commit that renders it. Waiting a
+  // frame left the sentence unfocused in between, and keys typed in that gap were lost.
+  useLayoutEffect(() => {
+    const id = pendingBlankCaret.current;
+    if (id == null) return;
+    const blank = sentenceAreaRef.current?.querySelector(`[data-blank-id="${id}"]`);
+    const sentence = blank?.closest(".sentence-text");
+    if (!blank || !sentence) return;
+    pendingBlankCaret.current = null;
+    sentence.focus({ preventScroll: true });
+    // A caret "after" a non-editable blank with no text behind it is snapped back by the
+    // browser into the text before the blank, so typing would land on the wrong side. Give
+    // it a zero-width space to sit in; CARET_ANCHOR is stripped when the sentence is read.
+    if (!(blank.nextSibling instanceof Text)) blank.after(document.createTextNode(CARET_ANCHOR));
+    const anchor = blank.nextSibling;
+    const range = document.createRange();
+    range.setStart(anchor, anchor.textContent.startsWith(CARET_ANCHOR) ? 1 : 0);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [currentSentenceCards]);
+
+  // Restore a caret by model offset (blank cards count as their text) once the edited sentence
+  // has re-rendered. A fresh render has exactly one DOM node per part, so the two walk together.
+  useLayoutEffect(() => {
+    const pending = pendingCaretOffset.current;
+    if (!pending || pending.page !== currentPage) return;
+    const sentence = sentenceAreaRef.current?.querySelector(`[data-sentence-index="${pending.index}"]`);
+    if (!sentence) return;
+    pendingCaretOffset.current = null;
+    sentence.focus({ preventScroll: true });
+    const parts = cardParts(currentSentenceCards[pending.index] ?? {});
+    const range = document.createRange();
+    let remaining = pending.offset;
+    let placed = false;
+    for (let partIndex = 0; partIndex < parts.length && !placed; partIndex += 1) {
+      const part = parts[partIndex];
+      const node = sentence.childNodes[partIndex];
+      const length = part.value?.length ?? 0;
+      if (!node) break;
+      if (part.type === "text" && remaining <= length) {
+        const text = node.nodeType === Node.TEXT_NODE ? node : node.firstChild;
+        if (text) range.setStart(text, remaining);
+        else range.setStart(node, 0);
+        placed = true;
+      } else if (part.type !== "text" && remaining <= 0) {
+        range.setStartBefore(node);
+        placed = true;
+      } else {
+        remaining -= length;
+      }
+    }
+    if (!placed) {
+      range.selectNodeContents(sentence);
+      range.collapse(false);
+    }
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [currentPage, currentSentenceCards]);
 
   useLayoutEffect(() => {
     const pending = pendingSentenceFocus.current;
@@ -1498,8 +1545,7 @@ export default function App({ initialTitle, onExit }) {
                       const blank = blankBeforeCaret(event.currentTarget, range);
                       if (!blank) return;
                       event.preventDefault();
-                      const childIndex = Array.from(event.currentTarget.childNodes).indexOf(blank);
-                      removeBlankWordCard(index, Number(blank.dataset.blankId), childIndex);
+                      removeBlankWordCard(index, Number(blank.dataset.blankId), event.currentTarget, range);
                     }
                   }}
                   onBlur={(event) => {
