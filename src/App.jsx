@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
+import { SAMPLE_CAPSULES, pagesForCapsules } from "./sampleCapsules";
 import { LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
@@ -41,7 +42,8 @@ const capsuleOpenLabel = (key) => {
   const days = daysUntil(key);
   if (days < 14) return `${days}天后开启`;
   if (days < 60) return `${Math.round(days / 7)}周后开启`;
-  return `${Math.round(days / 30)}个月后开启`;
+  if (days < 360) return `${Math.round(days / 30)}个月后开启`;
+  return `${Math.round(days / 365)}年后开启`;
 };
 // New blank ids must stay above every id already saved in the notebook.
 const maxBlankId = (cards) => Math.max(5, ...Object.values(cards ?? {}).flat()
@@ -147,8 +149,11 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   // audio library every notebook shares.
   const [saved] = useState(() => loadJSON(notebookKey(notebookId)));
   const [savedLibrary] = useState(() => loadJSON(LIBRARY_KEY));
-  const [pageCount, setPageCount] = useState(saved?.pageCount ?? 1);
-  const [currentPage, setCurrentPage] = useState(() => Math.min(initialPage ?? saved?.currentPage ?? 1, saved?.pageCount ?? 1));
+  // A built-in notebook opened for the first time starts with its example time capsules.
+  const [sampleCapsules] = useState(() => (saved ? null : SAMPLE_CAPSULES[notebookId] ?? null));
+  const initialPageCount = saved?.pageCount ?? (sampleCapsules ? pagesForCapsules(sampleCapsules) : 1);
+  const [pageCount, setPageCount] = useState(initialPageCount);
+  const [currentPage, setCurrentPage] = useState(() => Math.min(initialPage ?? saved?.currentPage ?? 1, initialPageCount));
   const [sentenceCards, setSentenceCards] = useState(saved?.sentenceCards ?? { 1: GUIDE_SENTENCE_CARDS });
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState(saved?.activeSentenceIndexes ?? { 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
@@ -224,7 +229,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   // [start, end] date keys of the sealing period; the capsule opens on the end date.
   const [capsuleRange, setCapsuleRange] = useState(() => [dateKey(new Date()), dateKey(addDays(new Date(), 21))]);
   // { id, spreads: [first page of each sealed spread], openAt: date key }
-  const [capsules, setCapsules] = useState(saved?.capsules ?? []);
+  const [capsules, setCapsules] = useState(saved?.capsules ?? sampleCapsules ?? []);
   const [overviewNotice, setOverviewNotice] = useState("");
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");

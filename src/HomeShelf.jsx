@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { IMG } from "./homeShelfAssets.js";
 import "./home-shelf.css";
+import { SAMPLE_CAPSULES } from "./sampleCapsules";
 import { SHELF_KEY, loadJSON, notebookKey, removeSaved, saveJSON } from "./storage";
 
 // Ported near-verbatim from public/prototypes/home-shelf/index.html (the standalone shelf
@@ -353,9 +354,9 @@ function initShelf(onOpenNotebookRef, signal) {
     const [y, m, d] = key.split('-').map(Number), now = new Date();
     return Math.round((new Date(y, m - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
   };
-  const openLabel = days => days <= 0 ? '已开启' : days < 14 ? days + '天后开启' : days < 60 ? Math.round(days / 7) + '周后开启' : Math.round(days / 30) + '个月后开启';
+  const openLabel = days => days <= 0 ? '已开启' : days < 14 ? days + '天后开启' : days < 60 ? Math.round(days / 7) + '周后开启' : days < 360 ? Math.round(days / 30) + '个月后开启' : Math.round(days / 365) + '年后开启';
   function openCapsules(navButton) {
-    const items = allNotebooks().flatMap(n => (loadJSON(notebookKey(n.b.id))?.capsules ?? []).filter(c => c && c.openAt && c.spreads?.length).map(c => {
+    const items = allNotebooks().flatMap(n => ((loadJSON(notebookKey(n.b.id)) ?? { capsules: SAMPLE_CAPSULES[n.b.id] }).capsules ?? []).filter(c => c && c.openAt && c.spreads?.length).map(c => {
       const spreads = [...c.spreads].sort((a, b) => a - b), [, m, d] = c.openAt.split('-').map(Number);
       return { n, c, days: daysUntil(c.openAt), page: spreads[0], pages: '第 ' + spreads.map(s => s + '–' + (s + 1)).join('、') + ' 页', date: m + '月' + d + '日' };
     })).sort((a, b) => (a.days <= 0) - (b.days <= 0) || (a.days > 0 ? a.days - b.days : b.days - a.days));   // still sealed first, soonest to open on top; opened ones after, newest first
