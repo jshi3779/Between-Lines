@@ -9,13 +9,14 @@ export default function Root() {
   return (
     <>
       <div style={{ display: openNotebook ? "none" : undefined }}>
-        <HomeShelf apiRef={shelfApi} onOpenNotebook={(book) => setOpenNotebook({ id: book.id, title: book.title })} />
+        <HomeShelf apiRef={shelfApi} onOpenNotebook={(book, page) => setOpenNotebook({ id: book.id, title: book.title, page })} />
       </div>
       {openNotebook && (
         <App
           key={openNotebook.id}
           notebookId={openNotebook.id}
           initialTitle={openNotebook.title}
+          initialPage={openNotebook.page}
           onTitleChange={(title) => shelfApi.current?.renameNotebook(openNotebook.id, title)}
           onExit={() => setOpenNotebook(null)}
         />

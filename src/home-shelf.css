@@ -147,3 +147,11 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .searchHit span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .searchHit small{flex:none;font-size:11px;color:#8b867c}
 .searchEmpty{margin:14px 0 6px;text-align:center;color:#8b867c;font-size:13px}
+/* time tab: every notebook's time capsules */
+.capsuleListCard h3{margin:2px 4px 2px;font-size:18px}
+.capsuleHit span{display:flex;flex-direction:column;gap:3px}
+.capsuleHit b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.capsuleHit span small{font-size:11px;color:#8b867c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.capsuleHit em{flex:none;padding:4px 8px;border-radius:999px;background:#1e2026;color:#fff;font-style:normal;font-size:11px;font-family:var(--marker)}
+.capsuleHit.isOpen em{background:#efe7db;color:#1e2026}
+.capsuleListCard .searchEmpty{line-height:1.7}

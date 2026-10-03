@@ -115,6 +115,19 @@ const WordCardGlyph = ({ className, color }) => (
 
 // Unselected tabs are a solid brush disc with a light glyph, selected ones an empty brush ring
 // with a dark glyph — the same pairing the existing image/audio/settings tab art uses.
+// A library item with its own small delete button (a wrapper, since buttons can't nest).
+const Deletable = ({ className = "", label, onDelete, compact = false, children }) => (
+  <div className={`library-item ${className}`.trim()}>
+    {children}
+    <button
+      className="library-item-delete"
+      type="button"
+      aria-label={`删除${label}`}
+      onClick={(event) => { event.stopPropagation(); onDelete(); }}
+    >{compact ? <span aria-hidden="true">×</span> : <img src={icon("delete-word.svg")} alt="" draggable={false} />}</button>
+  </div>
+);
+
 const GlyphTabIcon = ({ selected, glyph: Glyph }) => (
   <span className="glyph-tab-icon">
     <img className={selected ? "glyph-tab-ring" : "glyph-tab-disc"} src={icon(selected ? "manage-tab-ring-base.svg" : "library-tab-image-base.svg")} alt="" />
@@ -129,13 +142,13 @@ const SAMPLE_PHOTOS = [{
 const MANAGE_THUMBNAILS = Array.from({ length: 12 }, (_, index) => icon(`manage-thumb-${String(index + 1).padStart(2, "0")}.webp`));
 const MANAGE_LIBRARY_PHOTOS = MANAGE_THUMBNAILS.map((url, index) => ({ id: `library-photo-${index + 1}`, name: `素材 ${index + 1}`, url }));
 
-export default function App({ notebookId, initialTitle, onExit, onTitleChange }) {
+export default function App({ notebookId, initialTitle, initialPage, onExit, onTitleChange }) {
   // Read once per notebook (App is keyed by notebook): this notebook's save, and the word/photo/
   // audio library every notebook shares.
   const [saved] = useState(() => loadJSON(notebookKey(notebookId)));
   const [savedLibrary] = useState(() => loadJSON(LIBRARY_KEY));
   const [pageCount, setPageCount] = useState(saved?.pageCount ?? 1);
-  const [currentPage, setCurrentPage] = useState(() => Math.min(saved?.currentPage ?? 1, saved?.pageCount ?? 1));
+  const [currentPage, setCurrentPage] = useState(() => Math.min(initialPage ?? saved?.currentPage ?? 1, saved?.pageCount ?? 1));
   const [sentenceCards, setSentenceCards] = useState(saved?.sentenceCards ?? { 1: GUIDE_SENTENCE_CARDS });
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState(saved?.activeSentenceIndexes ?? { 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
@@ -217,6 +230,20 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
   const [shareNotice, setShareNotice] = useState("");
   const [recentPhotos, setRecentPhotos] = useState(savedLibrary?.recentPhotos ?? []);
   const [audioClips, setAudioClips] = useState(savedLibrary?.audioClips ?? []);
+  // Built-in library items can't be removed from the source lists, so deleting one hides it.
+  const [hiddenLibrary, setHiddenLibrary] = useState(() => ({ sentences: [], words: [], photos: [], ...savedLibrary?.hiddenLibrary }));
+  const hideLibraryItem = (kind, key) => setHiddenLibrary((hidden) => (hidden[kind].includes(key) ? hidden : { ...hidden, [kind]: [...hidden[kind], key] }));
+  const deleteLibrarySentence = (sentence) => hideLibraryItem("sentences", sentence);
+  const deleteLibraryWord = (word) => {
+    setLibraryWords((words) => words.filter((item) => item !== word));
+    hideLibraryItem("words", word);
+  };
+  // Removing a photo or recording from the library leaves any card already using it untouched.
+  const deleteLibraryPhoto = (photo) => {
+    if (recentPhotos.some((item) => item.id === photo.id)) setRecentPhotos((photos) => photos.filter((item) => item.id !== photo.id));
+    else hideLibraryItem("photos", photo.id);
+  };
+  const deleteAudioClip = (clip) => setAudioClips((clips) => clips.filter((item) => item.id !== clip.id));
   const [isRecording, setIsRecording] = useState(false);
   const [recordingNotice, setRecordingNotice] = useState("");
   const [sentenceLineCounts, setSentenceLineCounts] = useState({});
@@ -928,7 +955,8 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
   const activeSentenceIndex = activeSentenceIndexes[currentPage];
   const visibleLibraryWords = WORD_LIBRARY.filter(({ word, category }) =>
     (selectedWordCategory === "全部" || category === selectedWordCategory)
-    && word.includes(wordSearch.trim()),
+    && word.includes(wordSearch.trim())
+    && !hiddenLibrary.words.includes(word),
   );
   const isCardSection = manageSection === "sentences" || manageSection === "words";
   // A capsule stays sealed until its open date; spreads are identified by their first page.
@@ -950,11 +978,13 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
     setSelectedSpreads([]);
     setIsCapsuleDateOpen(false);
   };
-  const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS];
+  const isPhotoShown = (photo) => !hiddenLibrary.photos.includes(photo.id);
+  const pickerPhotos = [...recentPhotos, ...SAMPLE_PHOTOS, ...MANAGE_LIBRARY_PHOTOS].filter(isPhotoShown);
+  const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS].filter(isPhotoShown);
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
-    .filter((word) => word.includes(librarySearch.trim()));
+    .filter((word) => word.includes(librarySearch.trim()) && !hiddenLibrary.words.includes(word));
   const writtenSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
-  const sentenceLibrary = [...new Set([...SENTENCE_LIBRARY, ...writtenSentences])];
+  const sentenceLibrary = [...new Set([...SENTENCE_LIBRARY, ...writtenSentences])].filter((sentence) => !hiddenLibrary.sentences.includes(sentence));
   const sheetMode = sentencePicker ? "sentence" : editorMode;
   const showTypeTabs = Boolean(blankEditor && !blankEditor.single);
 
@@ -1097,6 +1127,7 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
       customLibraryCategories,
       recentPhotos: recentPhotos.map(withoutMediaUrl),
       audioClips: audioClips.map(withoutMediaUrl),
+      hiddenLibrary,
     });
   };
   const writeSaveRef = useRef(writeSave);
@@ -1110,7 +1141,7 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
       onTitleChangeRef.current?.(notebookTitle || "无标题");
     }, 400);
     return () => clearTimeout(timer);
-  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips]);
+  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary]);
 
   // Closing the tab, backgrounding the app or leaving the notebook can't wait for the debounce.
   useEffect(() => {
@@ -1903,7 +1934,9 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
               {sheetMode === "sentence" && (
                 <div className="sentence-picker-list">
                   {sentenceLibrary.map((sentence) => (
-                    <button key={sentence} type="button" onClick={() => fillSentenceFromLibrary(sentence)}>{sentence}</button>
+                    <Deletable key={sentence} label="这条句卡" onDelete={() => deleteLibrarySentence(sentence)}>
+                      <button type="button" onClick={() => fillSentenceFromLibrary(sentence)}>{sentence}</button>
+                    </Deletable>
                   ))}
                 </div>
               )}
@@ -1952,10 +1985,12 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
                   <label className="word-search" htmlFor="word-search"><input id="word-search" placeholder="搜索一个词…" aria-label="搜索词语" value={wordSearch} onChange={(event) => setWordSearch(event.target.value)} /></label>
                   <div className="word-suggestions">
                     {visibleLibraryWords.map(({ word }) => (
-                      <button key={word} type="button" onClick={() => {
-                        updateBlankWord(blankEditor.index, blankEditor.id, word);
-                        setBlankEditor(null);
-                      }}>{word}</button>
+                      <Deletable compact key={word} label={`词卡「${word}」`} onDelete={() => deleteLibraryWord(word)}>
+                        <button type="button" onClick={() => {
+                          updateBlankWord(blankEditor.index, blankEditor.id, word);
+                          setBlankEditor(null);
+                        }}>{word}</button>
+                      </Deletable>
                     ))}
                   </div>
                 </div>
@@ -1993,10 +2028,12 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
                   />
                   <p>最近使用</p>
                   <div className="recent-photo-grid">
-                    {[...recentPhotos, ...SAMPLE_PHOTOS, ...MANAGE_LIBRARY_PHOTOS].map((photo) => (
-                      <button key={photo.id} type="button" className={`uploaded-photo${photo.id === "default-photo" ? " is-pre-rotated" : ""}`} aria-label={`选择图片：${photo.name}`} onClick={() => insertPhotoCard(photo)}>
-                        <img src={photo.url || undefined} alt="" />
-                      </button>
+                    {pickerPhotos.map((photo) => (
+                      <Deletable key={photo.id} label={`图片：${photo.name}`} onDelete={() => deleteLibraryPhoto(photo)}>
+                        <button type="button" className={`uploaded-photo${photo.id === "default-photo" ? " is-pre-rotated" : ""}`} aria-label={`选择图片：${photo.name}`} onClick={() => insertPhotoCard(photo)}>
+                          <img src={photo.url || undefined} alt="" />
+                        </button>
+                      </Deletable>
                     ))}
                   </div>
                 </div>
@@ -2022,10 +2059,12 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
                   <div className="audio-recordings">
                     <span className="recent-label">最近使用</span>
                     {audioClips.length ? audioClips.map((clip) => (
-                      <button className="audio-clip" key={clip.id} type="button" aria-label={`填入录音，时长 ${formatDuration(clip.duration)}`} onClick={() => insertAudioCard(clip)}>
+                      <Deletable key={clip.id} label={`录音，时长 ${formatDuration(clip.duration)}`} onDelete={() => deleteAudioClip(clip)}>
+                      <button className="audio-clip" type="button" aria-label={`填入录音，时长 ${formatDuration(clip.duration)}`} onClick={() => insertAudioCard(clip)}>
                         <span>0:00</span><i className="audio-waveform" aria-hidden="true">{(clip.waveform ?? AUDIO_WAVEFORM).map((height, index) => <em key={index} style={{ height }} />)}</i><span>{formatDuration(clip.duration)}</span>
                         <img className="audio-play-control" src={icon("audio-play.svg")} alt="播放录音" draggable={false} onClick={(event) => playAudio(event, clip.url)} />
                       </button>
+                      </Deletable>
                     )) : <p className="audio-empty-state">录制的声音会出现在这里</p>}
                   </div>
                 </div>
@@ -2048,7 +2087,11 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
             <h2>{{ sentences: "句卡管理", words: "词卡管理", images: "图片管理", audio: "音频管理", settings: "内页与颜色" }[manageSection]}</h2>
             {manageSection === "images" ? <>
               <div className="manage-grid" aria-label="图片素材">
-                {managedPhotos.map((photo) => <img key={photo.id} src={photo.url || undefined} alt={photo.name} />)}
+                {managedPhotos.map((photo) => (
+                  <Deletable key={photo.id} label={`图片：${photo.name}`} onDelete={() => deleteLibraryPhoto(photo)}>
+                    <img src={photo.url || undefined} alt={photo.name} />
+                  </Deletable>
+                ))}
                 <button className="manage-add" type="button" aria-label="添加图片" onClick={() => managePhotoInput.current?.click()}>+</button>
               </div>
               <input
@@ -2066,7 +2109,8 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
             </> : manageSection === "audio" ? <div className="manage-audio-library">
               <div className="manage-audio-list">
                 {audioClips.length ? audioClips.map((clip) => (
-                  <article className="manage-audio-item" key={clip.id}>
+                  <Deletable key={clip.id} label={`录音，时长 ${formatDuration(clip.duration)}`} onDelete={() => deleteAudioClip(clip)}>
+                  <article className="manage-audio-item">
                     <span>0:00</span>
                     <i className="audio-waveform" aria-hidden="true">{(clip.waveform ?? AUDIO_WAVEFORM).map((height, barIndex) => <em key={barIndex} style={{ height }} />)}</i>
                     <span>{formatDuration(clip.duration)}</span>
@@ -2074,6 +2118,7 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
                       <img src={icon("audio-play.svg")} alt="" draggable={false} />
                     </button>
                   </article>
+                  </Deletable>
                 )) : <div className="manage-audio-empty">还没有录音<br /><small>在笔记本的 AUDIO 板块录音后会显示在这里</small></div>}
               </div>
             </div> : manageSection === "settings" ? <div className="appearance-library">
@@ -2138,10 +2183,18 @@ export default function App({ notebookId, initialTitle, onExit, onTitleChange })
                   <input value={librarySearch} placeholder="搜索词语…" onChange={(event) => setLibrarySearch(event.currentTarget.value)} />
                 </label>
                 <div className="library-word-list">
-                  {managedWords.map((word, index) => <button key={word} type="button" style={{ backgroundImage: `url("${icon(`library-word-${index % 5 + 1}.svg`)}")` }}>{word}</button>)}
+                  {managedWords.map((word, index) => (
+                    <Deletable compact key={word} label={`词卡「${word}」`} onDelete={() => deleteLibraryWord(word)}>
+                      <button type="button" style={{ backgroundImage: `url("${icon(`library-word-${index % 5 + 1}.svg`)}")` }}>{word}</button>
+                    </Deletable>
+                  ))}
                 </div>
               </> : <div className="library-sentence-list">
-                {sentenceLibrary.map((sentence) => <article key={sentence}>{sentence}</article>)}
+                {sentenceLibrary.map((sentence) => (
+                  <Deletable key={sentence} label="这条句卡" onDelete={() => deleteLibrarySentence(sentence)}>
+                    <article>{sentence}</article>
+                  </Deletable>
+                ))}
               </div>}
             </div>}
             <nav className="manage-tabs" aria-label="管理类型">

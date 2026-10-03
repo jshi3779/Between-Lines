@@ -316,13 +316,13 @@ function initShelf(onOpenNotebookRef, signal) {
   function allNotebooks() {
     return [TOP, BOTTOM, ...extraShelves].flatMap((S, shelfIndex) => S.books.map((b, i) => ({ S, b, i, shelfNo: shelfIndex + 1 })));
   }
-  function openFromSearch({ S, b, i }) {
+  function openFromSearch({ S, b, i }, page) {
     closeModal();
     // stand the book up and bring its shelf into view, so the shelf shows it when the user comes back
     const N = S.books.length, v = i + N * Math.round((S.pos - i) / N);
     activeShelf = S; S.goTo(v);
     shelvesWrap.scrollTop = Math.max(0, S.cfg.BOT - TOP_BOT);  // instant: the shelf is hidden as the editor opens
-    onOpenNotebookRef.current(b);
+    onOpenNotebookRef.current(b, page);
   }
   function openSearch(navButton) {
     modalRoot.style.pointerEvents = 'auto';
@@ -347,6 +347,33 @@ function initShelf(onOpenNotebookRef, signal) {
       const first = list.querySelector('.searchHit'); if (first) first.click();
     });
     render(); input.focus();
+  }
+  /* ---------- time tab: every notebook's time capsules (sealed in the editor's page overview), soonest first ---------- */
+  const daysUntil = key => {
+    const [y, m, d] = key.split('-').map(Number), now = new Date();
+    return Math.round((new Date(y, m - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  };
+  const openLabel = days => days <= 0 ? '已开启' : days < 14 ? days + '天后开启' : days < 60 ? Math.round(days / 7) + '周后开启' : Math.round(days / 30) + '个月后开启';
+  function openCapsules(navButton) {
+    const items = allNotebooks().flatMap(n => (loadJSON(notebookKey(n.b.id))?.capsules ?? []).filter(c => c && c.openAt && c.spreads?.length).map(c => {
+      const spreads = [...c.spreads].sort((a, b) => a - b), [, m, d] = c.openAt.split('-').map(Number);
+      return { n, c, days: daysUntil(c.openAt), page: spreads[0], pages: '第 ' + spreads.map(s => s + '–' + (s + 1)).join('、') + ' 页', date: m + '月' + d + '日' };
+    })).sort((a, b) => (a.days <= 0) - (b.days <= 0) || (a.days > 0 ? a.days - b.days : b.days - a.days));   // still sealed first, soonest to open on top; opened ones after, newest first
+    modalRoot.style.pointerEvents = 'auto';
+    modalRoot.innerHTML = `<div class="modalBack searchBack"><div class="modalCard searchCard capsuleListCard" role="dialog" aria-label="时间胶囊">
+      <h3>时间胶囊</h3>
+      <div class="searchResults" role="list">${items.length
+        ? items.map((x, k) => `<button type="button" class="searchHit capsuleHit${x.days <= 0 ? ' isOpen' : ''}" role="listitem" data-k="${k}"><i style="background:${x.n.b.col}"></i>
+            <span><b>${esc(x.n.b.title)}</b><small>${x.pages} · ${x.date}开启</small></span><em>${openLabel(x.days)}</em></button>`).join('')
+        : `<p class="searchEmpty">还没有时间胶囊<br>在笔记本的页面总览里选几页封存起来</p>`}</div>
+    </div></div>`;
+    onModalClose = () => navButton.setAttribute('aria-pressed', 'false');
+    const back = modalRoot.querySelector('.modalBack');
+    back.addEventListener('click', e => { if (e.target === back) closeModal(); });
+    modalRoot.querySelectorAll('.capsuleHit').forEach(btn => btn.addEventListener('click', () => {
+      const x = items[Number(btn.dataset.k)];
+      openFromSearch(x.n, x.page);
+    }));
   }
   function confirmDelete(S, v) {
     const b = S.books[mod(v, S.N)];
@@ -528,6 +555,7 @@ function initShelf(onOpenNotebookRef, signal) {
       if (n.tab) {
         navBtns.forEach(x => { if (x.dataset.tab === '1') x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
         if (n.k === 'search') openSearch(b);
+        else if (n.k === 'clock') openCapsules(b);
         else toast(n.label + ' — 对应页面下一步做');
       } else {                                            // "add notebook": flash the highlighted state, then release; the tab selection is untouched
         if (b.dataset.busy) return;                      // guards against a double-tap / "ghost click" adding more than one notebook

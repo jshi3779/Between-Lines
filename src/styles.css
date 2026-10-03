@@ -1644,7 +1644,8 @@ html, body, #root {
 
 .manage-grid::-webkit-scrollbar { display: none; }
 
-.manage-grid > img {
+.manage-grid > img,
+.manage-grid > .library-item > img {
   display: block;
   width: 105px;
   height: 105px;
@@ -1995,3 +1996,59 @@ html, body, #root {
     transform: translate(-50%, -50%) scale(var(--app-scale, 1));
   }
 }
+
+/* Every library item (sentence, word, photo, recording) carries its own delete button. */
+.library-item { position: relative; display: grid; }
+.library-item > .library-item-delete {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: auto;
+}
+.library-item > .library-item-delete img { display: block; width: 100%; height: 100%; }
+.library-item > .library-item-delete:focus-visible { outline: 2px solid #3465d6; outline-offset: 1px; }
+
+/* sentences: at the right end of the row */
+.sentence-picker-list > .library-item > .library-item-delete,
+.library-sentence-list > .library-item > .library-item-delete { top: 50%; right: 6px; transform: translateY(-50%); }
+.sentence-picker-list > .library-item > button:first-child { padding-right: 36px; }
+.library-sentence-list > .library-item > article { padding-right: 40px; }
+
+/* words: a small dark x badge on the chip's top-right corner */
+.word-suggestions > .library-item,
+.library-word-list > .library-item { display: inline-grid; }
+.word-suggestions > .library-item > .library-item-delete,
+.library-word-list > .library-item > .library-item-delete {
+  top: -5px;
+  right: -5px;
+  width: 15px;
+  height: 15px;
+  background: #1e2026;
+  color: #fff;
+  font: 12px/1 system-ui, sans-serif;
+}
+.word-suggestions { padding: 5px 5px 0 0; row-gap: 8px; }
+.library-word-list { padding: 5px 5px 0 0; row-gap: 10px; }
+
+/* photos: inside the thumbnail's top-right corner */
+.recent-photo-grid > .library-item > .library-item-delete,
+.manage-grid > .library-item > .library-item-delete { top: 2px; right: 2px; }
+
+/* recordings: beside the clip */
+.audio-recordings > .library-item,
+.manage-audio-list > .library-item { display: flex; align-items: center; gap: 4px; }
+.audio-recordings > .library-item { margin-top: 8px; }
+.audio-recordings > .library-item > .audio-clip { flex: 1; min-width: 0; margin-top: 0; }
+.manage-audio-list > .library-item { justify-content: center; }
+.manage-audio-list > .library-item > .manage-audio-item { margin: 0; }
+.audio-recordings > .library-item > .library-item-delete,
+.manage-audio-list > .library-item > .library-item-delete { position: static; flex: none; }
