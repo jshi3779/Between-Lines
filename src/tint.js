@@ -65,3 +65,14 @@ export const useTinted = (src, fromHex, toHex) => {
   }, [src, fromHex, toHex, same]);
   return same ? src : url ?? src;
 };
+
+// For CSS backgrounds (no component to hold state): the tinted URL if it is ready, otherwise the
+// original, and `onReady` runs once the tinted copy exists so the caller can re-render.
+const ready = new Map();
+export const peekTint = (src, fromHex, toHex, onReady) => {
+  if (!toHex || toHex.toLowerCase() === fromHex.toLowerCase()) return src;
+  const key = `${src}|${fromHex}|${toHex}`;
+  if (ready.has(key)) return ready.get(key);
+  tintImage(src, fromHex, toHex).then((url) => { if (!ready.has(key)) { ready.set(key, url); onReady?.(); } });
+  return src;
+};

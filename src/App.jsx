@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 import { SAMPLE_CAPSULES, pagesForCapsules } from "./sampleCapsules";
-import { useTinted } from "./tint";
+import { peekTint, useTinted } from "./tint";
 import { LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
@@ -40,6 +40,8 @@ const USERS = {
 // The "watch friends write" demo: each step is one collaborator writing a sentence (BLANK marks a
 // word card left for someone else) or filling the next empty word card on the demo page.
 const BLANK = null;
+const PHOTO_CARD_ART_COLOR = USERS[1].color; // photo-card.svg is drawn in the yellow writer colour
+const AUDIO_CARD_ART_COLOR = USERS[3].color; // audio-word-card.svg in the blue one
 // collaborator artwork recoloured to the colour picked for that person in this notebook
 const TintedImg = ({ src, from, to, ...rest }) => <img src={useTinted(src, from, to)} {...rest} />;
 const COLLAB_SCRIPT = [
@@ -269,6 +271,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const [tagMenuUser, setTagMenuUser] = useState(null); // whose tag's colour menu is open
   const [tagColors, setTagColors] = useState(saved?.tagColors ?? {}); // { user: "#hex" } picked in this notebook
   const colorOf = (user) => tagColors[user] ?? USERS[user]?.color;
+  const [, bumpTint] = useReducer((n) => n + 1, 0); // re-render once a tinted card background is ready
   const [isInvitePicking, setIsInvitePicking] = useState(false); // share sheet: pick the invited friend's colour
   const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
   const [collabNotice, setCollabNotice] = useState("");
@@ -355,7 +358,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       [page]: (cards[page] ?? []).map((card, cardIndex) => cardIndex !== index ? card : {
         ...card,
         parts: cardParts(card).map((part) => part.type === "blank" && part.id === id
-          ? { ...part, value: "", audio: undefined, photo: { url: photo.url, name: photo.name, mediaId: photo.mediaId } }
+          ? { ...part, value: "", audio: undefined, photo: { url: photo.url, name: photo.name, mediaId: photo.mediaId }, color: colorOf(currentUser), by: currentUser }
           : part),
       }),
     }));
@@ -370,7 +373,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       [page]: (cards[page] ?? []).map((card, cardIndex) => cardIndex !== index ? card : {
         ...card,
         parts: cardParts(card).map((part) => part.type === "blank" && part.id === id
-          ? { ...part, value: "", photo: undefined, audio: { url: clip.url, duration: clip.duration, waveform: clip.waveform, mediaId: clip.mediaId } }
+          ? { ...part, value: "", photo: undefined, audio: { url: clip.url, duration: clip.duration, waveform: clip.waveform, mediaId: clip.mediaId }, color: colorOf(currentUser), by: currentUser }
           : part),
       }),
     }));
@@ -402,7 +405,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     setTagColors((colors) => ({ ...colors, [user]: hex }));
     setSentenceCards((cards) => Object.fromEntries(Object.entries(cards).map(([page, list]) => [page, list.map((card) => ({
       ...card,
-      parts: cardParts(card).map((part) => (part.type === "blank" && part.value && (part.by === user || (!part.by && part.color === previous))
+      parts: cardParts(card).map((part) => (part.type === "blank" && (part.value || part.photo || part.audio) && (part.by === user || (!part.by && part.value && part.color === previous))
         ? { ...part, by: user, color: hex }
         : part)),
     }))])));
@@ -931,7 +934,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               "--blank-card-width": `${blankCardWidth(part.value)}px`,
               "--blank-card-color": part.color ?? "#79746d",
               "--filled-word-card-icon": part.value ? `url("${icon(`word-card-green-${wordCardLength(part.value)}.svg`)}")` : undefined,
-              "--audio-word-card-icon": part.audio ? `url("${icon("audio-word-card.svg")}")` : undefined,
+              "--audio-word-card-icon": part.audio ? `url("${peekTint(icon("audio-word-card.svg"), AUDIO_CARD_ART_COLOR, part.by ? part.color : undefined, bumpTint)}")` : undefined,
             }}
             role="button"
             tabIndex={0}
@@ -986,7 +989,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
             }}
           >
             {part.photo ? <>
-              <img className="photo-card-frame" src={icon("photo-card.svg")} alt="" draggable={false} />
+              <TintedImg className="photo-card-frame" src={icon("photo-card.svg")} from={PHOTO_CARD_ART_COLOR} to={part.by ? part.color : undefined} alt="" draggable={false} />
               <img className="photo-card-image" src={part.photo.url || undefined} alt={part.photo.name} draggable={false} />
             </> : part.audio ? <>
               <i className="audio-waveform" aria-hidden="true">{(part.audio.waveform ?? AUDIO_WAVEFORM).map((height, index) => <em key={index} style={{ height }} />)}</i><span>{formatDuration(part.audio.duration)}</span>
