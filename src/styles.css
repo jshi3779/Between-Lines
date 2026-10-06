@@ -2028,13 +2028,13 @@ html, body, #root {
 .library-word-list > .library-item { display: inline-grid; }
 .word-suggestions > .library-item > .library-item-delete,
 .library-word-list > .library-item > .library-item-delete {
-  top: -5px;
-  right: -5px;
-  width: 15px;
-  height: 15px;
-  background: #1e2026;
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  background: #b9b6ae;
   color: #fff;
-  font: 12px/1 system-ui, sans-serif;
+  font: 9px/1 system-ui, sans-serif;
 }
 .word-suggestions { padding: 5px 5px 0 0; row-gap: 8px; }
 .library-word-list { padding: 5px 5px 0 0; row-gap: 10px; }
