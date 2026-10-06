@@ -1945,6 +1945,8 @@ html, body, #root {
 }
 
 .library-sentence-list { flex-direction: column; flex-wrap: nowrap; }
+/* nothing sits above the sentence list, so it runs down to just above the bottom tabs (731px) */
+.manage-screen-sentences .library-sentence-list { box-sizing: border-box; max-height: 594px; padding-bottom: 18px; -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent); }
 .library-sentence-list article {
   box-sizing: border-box;
   width: 330px;
