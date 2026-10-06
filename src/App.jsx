@@ -257,6 +257,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const [audioClips, setAudioClips] = useState(savedLibrary?.audioClips ?? []);
   // who is writing on this device; picked by tapping a tag at the top of the page
   const [currentUser, setCurrentUser] = useState(() => (USERS[savedLibrary?.currentUser] ? savedLibrary.currentUser : 1));
+  const [collaborators, setCollaborators] = useState(() => saved?.collaborators ?? (String(notebookId).startsWith("new") ? [] : [1, 2, 3, 4]));
+  const [isInvitePicking, setIsInvitePicking] = useState(false); // share sheet: pick the invited friend's colour
   const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
   const [collabNotice, setCollabNotice] = useState("");
   const collabRun = useRef(null);
@@ -372,7 +374,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const shareTo = async (channel) => {
     if (channel === "系统分享" && navigator.share) {
       try {
-        await navigator.share({ title: notebookTitle || "无标题", text: "邀请你一起在 Between Lines 里共写一句话。" });
+        await navigator.share({ title: notebookTitle || "无标题", text: "邀请你一起在「扣指成诗」里共写一句话。" });
         setShareNotice("已打开系统分享");
       } catch {
         return;
@@ -381,6 +383,15 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       setShareNotice(`已准备分享到${channel}`);
     }
     window.setTimeout(() => setShareNotice(""), 1800);
+    if (collaborators.length < 4) setIsInvitePicking(true);
+  };
+  const inviteCollaborator = (user) => {
+    // the inviter gets a tag too, the first time anyone joins
+    setCollaborators((list) => [...new Set([...(list.length ? list : [currentUser]), user])].sort());
+    setIsInvitePicking(false);
+    setIsShareOpen(false);
+    setShareNotice(`${USERS[user].name} 加入了这本笔记本`);
+    window.setTimeout(() => setShareNotice(""), 2200);
   };
 
   const startRecording = async () => {
@@ -1152,6 +1163,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     setIsEditingCard(false);
     setPageCount(page);
     setCurrentPage(page);
+    setCollaborators([1, 2, 3, 4]);
     setCollabNotice("多人共写演示中 · 点这里停止");
     const updateCard = (index, change) => setSentenceCards((cards) => ({
       ...cards,
@@ -1226,6 +1238,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       sentenceCards: mapCardMedia(cards, withoutMediaUrl),
       activeSentenceIndexes,
       capsules,
+      collaborators,
       title: notebookTitle,
       pageTone,
       cardTone,
@@ -1254,7 +1267,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       onTitleChangeRef.current?.(notebookTitle || "无标题");
     }, 400);
     return () => clearTimeout(timer);
-  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary, currentUser]);
+  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, collaborators, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary, currentUser]);
 
   // Closing the tab, backgrounding the app or leaving the notebook can't wait for the debounce.
   useEffect(() => {
@@ -1704,7 +1717,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         )}
 
         {isShareOpen && (
-          <div className="share-dialog" role="dialog" aria-modal="true" aria-label="分享笔记本" onClick={() => setIsShareOpen(false)}>
+          <div className="share-dialog" role="dialog" aria-modal="true" aria-label="分享笔记本" onClick={() => { setIsShareOpen(false); setIsInvitePicking(false); }}>
             <section className="share-sheet" onClick={(event) => event.stopPropagation()}>
               <div className="content-editor-sheet-background" aria-hidden="true">
                 <img className="panel-top" src={icon("panel-top.svg")} alt="" />
@@ -1714,6 +1727,19 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               <div className="share-sheet-handle" />
               <h2>分享笔记本</h2>
               <p>邀请朋友一起把句子写完</p>
+              {isInvitePicking ? (
+                <div className="invite-colors">
+                  <p>给这位朋友选一个颜色，TA 填的词卡就是这个颜色</p>
+                  <div>
+                    {[1, 2, 3, 4].filter((user) => !collaborators.includes(user) && !(collaborators.length === 0 && user === currentUser)).map((user) => (
+                      <button key={user} type="button" style={{ "--user-color": USERS[user].color }} onClick={() => inviteCollaborator(user)}>
+                        <img src={icon(`user-${user}.svg`)} alt="" draggable={false} />
+                        <small>{USERS[user].name}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
               <div className="share-channel-grid">
                 {[
                   ["微信", "wechat"],
@@ -1729,8 +1755,9 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                   </button>
                 ))}
               </div>
+              )}
               <button className="share-collab-demo" type="button" onClick={runCollabDemo}>▶ 演示多人一起写一首诗</button>
-              <button className="share-cancel" type="button" onClick={() => setIsShareOpen(false)}>取消</button>
+              <button className="share-cancel" type="button" onClick={() => { setIsShareOpen(false); setIsInvitePicking(false); }}>取消</button>
             </section>
           </div>
         )}
@@ -1744,7 +1771,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         )}
 
         <div className="user-labels" aria-label="笔记本协作者">
-          {[1, 2, 3, 4].map((user) => (
+          {collaborators.map((user) => (
             <button
               key={user}
               type="button"
@@ -2056,10 +2083,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                       aria-pressed={editorMode === mode}
                       onClick={() => setEditorMode(mode)}
                     >
-                      <img
-                        src={icon(`content-tab-${mode}-${editorMode === mode ? "selected" : "default"}.svg`)}
-                        alt={{ word: "词卡", photo: "图片", audio: "音频" }[mode]}
-                      />
+                      {{ word: "词卡", photo: "图片", audio: "音频" }[mode]}
                     </button>
                   ))}
                 </nav>
@@ -2105,7 +2129,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                         updateBlankWord(blankEditor.index, blankEditor.id, dialogInput.current?.value ?? "");
                         setBlankEditor(null);
                       }}
-                    >Add</button>
+                    >添加</button>
                   </label>
                   <div className="word-categories">
                     {WORD_CATEGORIES.map((category) => (
@@ -2254,7 +2278,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                     </button>
                   </article>
                   </Deletable>
-                )) : <div className="manage-audio-empty">还没有录音<br /><small>在笔记本的 AUDIO 板块录音后会显示在这里</small></div>}
+                )) : <div className="manage-audio-empty">还没有录音<br /><small>在笔记本的音频面板录音后会显示在这里</small></div>}
               </div>
             </div> : manageSection === "settings" ? <div className="appearance-library">
               <section>

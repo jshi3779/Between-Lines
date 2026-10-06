@@ -18,7 +18,11 @@ export default function Root() {
           initialTitle={openNotebook.title}
           initialPage={openNotebook.page}
           onTitleChange={(title) => shelfApi.current?.renameNotebook(openNotebook.id, title)}
-          onExit={() => setOpenNotebook(null)}
+          onExit={() => {
+            const id = openNotebook.id;
+            setOpenNotebook(null);
+            window.setTimeout(() => shelfApi.current?.refreshNotebook(id), 60); // after the editor has flushed its save
+          }}
         />
       )}
     </>

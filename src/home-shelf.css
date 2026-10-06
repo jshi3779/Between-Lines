@@ -203,3 +203,21 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .modalBtns button{border-radius:14px}
 .mCancel{background:#ecedf0}
 .mSave{background:#1e2026}
+/* app title (was the "BETWEEN LINES / MY NOTEBOOKS" artwork) */
+#title{display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0;font-weight:400;color:#1d1c18}
+#title strong{font-family:var(--marker);font-size:36px;font-weight:400;line-height:38px;letter-spacing:6px}
+#title span{margin-top:3px;font-family:var(--marker);font-size:11px;line-height:13px;letter-spacing:3px;color:#3b3a36}
+/* collaborator avatars on a shared notebook's cover */
+.dots i{background-color:#fdfdfb;background-size:cover;background-position:center}
+.coverDots{position:absolute;left:11px;bottom:12px;display:flex;z-index:1}
+.coverDots i{width:23px;height:23px;border-radius:50%;border:2.5px solid #f6f3ec;margin-right:-9px;background-color:#fdfdfb;background-size:cover;background-position:center}
+/* custom colour: a rainbow swatch wrapping the native colour picker; shows the picked colour once set */
+.swatchCustom{position:relative;display:block;overflow:hidden;background:conic-gradient(#e0632c,#f6be45,#3d8a4f,#1f9c96,#3a4f84,#8a5cb0,#c8577a,#e0632c)}
+.swatchCustom::after{content:"+";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:600 15px/1 system-ui,sans-serif;text-shadow:0 0 3px rgb(0 0 0 / 45%);pointer-events:none}
+.swatchCustom.isSet::after{content:none}
+.swatchCustom input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+/* keep the title inside the 115px header backing, so a shelf line scrolled up under it never shows through */
+#title{top:62px;height:48px}
+#title strong{font-size:34px;line-height:34px}
+/* room for the custom-colour swatch on the same row */
+.swatches{gap:6px}

@@ -2106,3 +2106,30 @@ html, body, #root {
 .share-collab-demo + .share-cancel { margin-top: 10px; }
 .collab-notice { display: flex; align-items: center; gap: 7px; border: 0; white-space: nowrap; cursor: pointer; }
 .collab-notice i { width: 9px; height: 9px; border-radius: 50%; }
+
+/* type tabs in the blank-card panel: Chinese labels instead of the WORD / PHOTO / AUDIO artwork */
+.content-editor-tabs button {
+  color: #a5a7ad;
+  font-family: "851 GBai Marker", "Segoe Print", "Bradley Hand", cursive;
+  font-size: 16px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+.content-editor-tabs button.is-selected { color: #242222; }
+.content-editor-tabs button.is-selected::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px;
+  background: #242222;
+}
+
+/* share sheet, after sending an invite: pick the friend's colour */
+.invite-colors > p { margin: 0 0 14px; color: #7d7a74; font-size: 13px; text-align: center; }
+.invite-colors > div { display: flex; justify-content: center; gap: 22px; }
+.invite-colors button { display: grid; justify-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #242222; font: inherit; font-size: 12px; cursor: pointer; }
+.invite-colors button img { width: 54px; height: 54px; border-radius: 50%; box-shadow: 0 0 0 3px var(--user-color); }
+.invite-colors button:hover img, .invite-colors button:focus-visible img { box-shadow: 0 0 0 3px var(--user-color), 0 0 0 6px rgb(36 34 34 / 12%); }

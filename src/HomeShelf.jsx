@@ -19,7 +19,7 @@ function initShelf(onOpenNotebookRef, signal) {
   const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const escAttr = s => esc(s).replace(/"/g, '&quot;');
   const screen = $('screen'), shelvesWrap = $('shelvesWrap'), shelvesInner = $('shelvesInner');
-  $('title').src = IMG.title; $('line1').src = IMG.line1; $('line2').src = IMG.line2;
+  $('line1').src = IMG.line1; $('line2').src = IMG.line2;
 
   /* ---------- notebooks (numbers read from the Figma frames 1:323 / 1:342) ----------
      T x H = spine rectangle before rotation, phi = lean (deg, CSS clockwise), yc = rectangle centre y. */
@@ -78,14 +78,24 @@ function initShelf(onOpenNotebookRef, signal) {
     const S = { cfg, books: cfg.books.map(prep), N: 0, row: cfg.row, pos: cfg.pos0, k: cfg.k0, kT: cfg.k0, A: cfg.pos0, anim: null, raf: 0, tPrev: 0, slots: new Map() };
     recomputeGaps(S);
 
+    // Collaborators' avatars on the cover. Only the built-in notebooks have been shared; a brand-new
+    // notebook nobody has been invited to shows none.
+    const AVATAR = n => import.meta.env.BASE_URL + 'icons/user-' + n + '.svg';
+    function avatarsHTML(b, extraClass = '') {
+      const k = Object.keys(FIGMA_BOOKS).indexOf(b.id);
+      const invited = k < 0 ? loadJSON(notebookKey(b.id))?.collaborators ?? [] : null;   // a new notebook shows whoever was invited to it
+      if (invited && !invited.length) return '';
+      const users = invited ? invited.slice(0, 3) : [0, 1, 2].map(i => ((k + i) % 4) + 1);
+      return '<div class="dots' + extraClass + '">' + users.map(u => '<i style="background-image:url(' + AVATAR(u) + ')"></i>').join('') + '</div>';
+    }
     function coverHTML(b) {
       const trashBtn = `<button type="button" class="trashBtn" aria-label="删除「${escAttr(b.title)}」" style="${b.cover ? 'left:140.7px;top:224.4px;right:auto;bottom:auto' : ''}"><img class="trash" src="${IMG.trash}" alt=""></button>`;
       const editBtn = `<button type="button" class="editBtn" aria-label="编辑「${escAttr(b.title)}」">${b.cover ? '' : `<img class="sl" src="${IMG.sliders}" alt="">`}</button>`;
-      if (b.cover) return `<img class="cimg" src="${IMG.cover}" alt="${escAttr(b.title)}">${editBtn}${trashBtn}`;
+      if (b.cover) return `<img class="cimg" src="${IMG.cover}" alt="${escAttr(b.title)}">${avatarsHTML(b, ' coverDots')}${editBtn}${trashBtn}`;
       const fs = Math.min(20, Math.floor(1420 / [...b.title].length) / 10);   // long titles shrink to fit the cover
       const artStyle = b.coverImg ? `background-image:url(${b.coverImg});background-size:cover;background-position:center;` : '';
       return `<div class="ccss" style="--c:${b.col};--tc:${b.tc}"><div class="art" style="${artStyle}"></div>${editBtn}` +
-        `<div class="ttl" style="font-size:${fs}px">${esc(b.title)}</div><div class="dots"><i></i><i></i><i></i></div></div>${trashBtn}`;
+        `<div class="ttl" style="font-size:${fs}px">${esc(b.title)}</div>${avatarsHTML(b)}</div>${trashBtn}`;
     }
     function makeSlot(v) {
       const b = S.books[mod(v, S.N)], H = b.H, el = document.createElement('div');
@@ -255,6 +265,9 @@ function initShelf(onOpenNotebookRef, signal) {
       : { id: b.id, title: b.title, T: b.T, H: b.H, phi: b.phi, col: b.col, tc: b.tc, coverImg: b.coverImg || null })));
     if (!saveJSON(SHELF_KEY, { version: 1, newBookSeq, shelves })) toast('保存失败：浏览器存储空间不足');
   }
+  function refreshNotebook(id) {
+    for (const S of [TOP, BOTTOM, ...extraShelves]) if (S.books.some(x => x.id === id)) S.rebuild();
+  }
   function renameNotebook(id, title) {
     for (const S of [TOP, BOTTOM, ...extraShelves]) {
       const b = S.books.find(x => x.id === id);
@@ -419,7 +432,7 @@ function initShelf(onOpenNotebookRef, signal) {
         <p>删除所有笔记本、句卡、图片和录音，回到第一次打开的样子。</p>
         <div class="setBtns"><button type="button" class="setBtn isDanger" data-act="clear">清除所有数据</button></div>
       </section>
-      <p class="setAbout">Between Lines · 拼贴诗笔记本</p>`;
+      <p class="setAbout">扣指成诗 · 拼贴诗笔记本</p>`;
     storageUsage().then(u => {
       const span = card.querySelector('.setUsage span');
       if (span) span.textContent = `文字 ${fmtBytes(u.json)} · 图片和录音 ${u.mediaCount} 个，${fmtBytes(u.media)}`;
@@ -443,7 +456,7 @@ function initShelf(onOpenNotebookRef, signal) {
       const file = fileInput.files[0]; fileInput.value = ''; if (!file) return;
       let backup;
       try { backup = JSON.parse(await file.text()); if (backup?.app !== 'between-lines') throw 0; }
-      catch { toast('这不是 Between Lines 的备份文件'); return; }
+      catch { toast('这不是扣指成诗的备份文件'); return; }
       settingsConfirm('导入这份备份？', '现在保存的所有内容会被备份里的内容替换。', '导入', async () => {
         try { await importBackup(backup); window.location.reload(); }
         catch { toast('导入失败：浏览器存储空间不足'); renderSettings(card); }
@@ -508,7 +521,8 @@ function initShelf(onOpenNotebookRef, signal) {
     const b = S.books[mod(v, S.N)];
     if (b.sp || b.cover) { toast('这本笔记本的美术来自设计稿，暂不支持编辑'); return; }
     modalRoot.style.pointerEvents = 'auto';
-    const swatches = NEW_PALETTE.map(p => `<button type="button" class="swatch" data-col="${p.col}" data-tc="${p.tc}" style="background:${p.col}"></button>`).join('');
+    const swatches = NEW_PALETTE.map(p => `<button type="button" class="swatch" data-col="${p.col}" data-tc="${p.tc}" style="background:${p.col}"></button>`).join('')
+      + `<label class="swatch swatchCustom" title="自定义颜色" aria-label="自定义颜色"><input type="color" class="mColor" value="${/^#[0-9a-f]{6}$/i.test(b.col) ? b.col : '#3d8a4f'}"></label>`;
     modalRoot.innerHTML = `<div class="modalBack"><div class="modalCard">
       <h3>编辑笔记本</h3>
       <label class="mLabel">名字</label>
@@ -537,7 +551,17 @@ function initShelf(onOpenNotebookRef, signal) {
     const back = modalRoot.querySelector('.modalBack');
     back.addEventListener('click', e => { if (e.target === back) closeModal(); });
     modalRoot.querySelector('.mCancel').addEventListener('click', closeModal);
-    modalRoot.querySelectorAll('.swatch').forEach(sw => {
+    // any colour: the title text turns dark on light covers and light on dark ones
+    const customSw = modalRoot.querySelector('.swatchCustom'), colorInput = modalRoot.querySelector('.mColor');
+    const textOn = hex => { const n = parseInt(hex.slice(1), 16), l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; return l > 0.62 ? '#1d1c18' : '#fdfdfb'; };
+    const paintCustom = col => { customSw.style.background = col; customSw.classList.add('isSet'); };
+    if (!NEW_PALETTE.some(p => p.col.toLowerCase() === b.col.toLowerCase())) { paintCustom(b.col); customSw.classList.add('on'); }
+    colorInput.addEventListener('input', () => {
+      modalRoot.querySelectorAll('.swatch').forEach(x => x.classList.remove('on'));
+      paintCustom(colorInput.value); customSw.classList.add('on');
+      chosen = { col: colorInput.value, tc: textOn(colorInput.value) };
+    });
+    modalRoot.querySelectorAll('.swatch:not(.swatchCustom)').forEach(sw => {
       if (sw.dataset.col.toLowerCase() === b.col.toLowerCase()) sw.classList.add('on');
       sw.addEventListener('click', () => { modalRoot.querySelectorAll('.swatch').forEach(x => x.classList.remove('on')); sw.classList.add('on'); chosen = { col: sw.dataset.col, tc: sw.dataset.tc }; });
     });
@@ -567,7 +591,7 @@ function initShelf(onOpenNotebookRef, signal) {
     if (suppressClick) return;
     if (S.k > 0.98 && !S.anim && Math.abs(S.pos - v) < 0.02) onOpenNotebookRef.current(b); else S.goTo(v);
   }
-  $('bell').addEventListener('click', () => toast('No new notifications'), { signal });
+  $('bell').addEventListener('click', () => toast('暂时没有新通知'), { signal });
   window.addEventListener('keydown', e => {
     if (modalRoot.firstChild) { if (e.key === 'Escape') closeModal(); return; }   // typing in the edit dialog must not also move a shelf
     const S = activeShelf;
@@ -662,7 +686,7 @@ function initShelf(onOpenNotebookRef, signal) {
     navEl.appendChild(b); return b;
   });
 
-  return { TOP, BOTTOM, extraShelves, extraNodes, navEl, modalRoot, renameNotebook, getToastTimer: () => toastT };
+  return { TOP, BOTTOM, extraShelves, extraNodes, navEl, modalRoot, renameNotebook, refreshNotebook, getToastTimer: () => toastT };
 }
 
 export default function HomeShelf({ onOpenNotebook, apiRef }) {
@@ -672,7 +696,7 @@ export default function HomeShelf({ onOpenNotebook, apiRef }) {
   useEffect(() => {
     const controller = new AbortController();
     const handles = initShelf(onOpenNotebookRef, controller.signal);
-    if (apiRef) apiRef.current = { renameNotebook: handles.renameNotebook };
+    if (apiRef) apiRef.current = { renameNotebook: handles.renameNotebook, refreshNotebook: handles.refreshNotebook };
     return () => {
       controller.abort();
       if (apiRef) apiRef.current = null;
@@ -700,8 +724,8 @@ export default function HomeShelf({ onOpenNotebook, apiRef }) {
           </div>
         </div>
         <div className="hdrBack"></div>
-        <img className="abs" id="title" alt="Between Lines — My Notebooks" />
-        <button className="abs" id="bell" aria-label="Notifications"></button>
+        <h1 className="abs" id="title"><strong>扣指成诗</strong><span>我的笔记本</span></h1>
+        <button className="abs" id="bell" aria-label="通知"></button>
         <div className="navBack"></div>
         <div id="nav"></div>
         <div className="toast" id="toast"></div>
