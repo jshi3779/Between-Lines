@@ -83,8 +83,8 @@ function initShelf(onOpenNotebookRef, signal) {
     const AVATAR = n => import.meta.env.BASE_URL + 'icons/user-' + n + '.svg';
     function avatarsHTML(b, extraClass = '') {
       const k = Object.keys(FIGMA_BOOKS).indexOf(b.id);
-      const invited = k < 0 ? loadJSON(notebookKey(b.id))?.collaborators ?? [] : null;   // a new notebook shows whoever was invited to it
-      if (invited && !invited.length) return '';
+      const invited = k < 0 ? loadJSON(notebookKey(b.id))?.collaborators ?? [] : null;   // a new notebook shows its writers once someone was invited
+      if (invited && invited.length < 2) return '';                                     // just you: nobody invited yet
       const users = invited ? invited.slice(0, 3) : [0, 1, 2].map(i => ((k + i) % 4) + 1);
       return '<div class="dots' + extraClass + '">' + users.map(u => '<i style="background-image:url(' + AVATAR(u) + ')"></i>').join('') + '</div>';
     }

@@ -258,7 +258,12 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const [audioClips, setAudioClips] = useState(savedLibrary?.audioClips ?? []);
   // who is writing on this device; picked by tapping a tag at the top of the page
   const [currentUser, setCurrentUser] = useState(() => (USERS[savedLibrary?.currentUser] ? savedLibrary.currentUser : 1));
-  const [collaborators, setCollaborators] = useState(() => saved?.collaborators ?? (String(notebookId).startsWith("new") ? [] : [1, 2, 3, 4]));
+  const [collaborators, setCollaborators] = useState(() => {
+    if (saved?.collaborators?.length) return saved.collaborators;
+    if (!saved?.collaborators && !String(notebookId).startsWith("new")) return [1, 2, 3, 4];
+    return [USERS[savedLibrary?.currentUser] ? savedLibrary.currentUser : 1];
+  });
+  const [tagMenuUser, setTagMenuUser] = useState(null); // whose tag's colour menu is open
   const [isInvitePicking, setIsInvitePicking] = useState(false); // share sheet: pick the invited friend's colour
   const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
   const [collabNotice, setCollabNotice] = useState("");
@@ -385,6 +390,19 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     }
     window.setTimeout(() => setShareNotice(""), 1800);
     if (collaborators.length < 4) setIsInvitePicking(true);
+  };
+  const recolorCollaborator = (from, to) => {
+    setTagMenuUser(null);
+    if (from === to || collaborators.includes(to)) return;
+    setCollaborators((list) => list.map((user) => (user === from ? to : user)));
+    setSentenceCards((cards) => Object.fromEntries(Object.entries(cards).map(([page, list]) => [page, list.map((card) => ({
+      ...card,
+      avatar: card.avatar === from ? to : card.avatar,
+      parts: cardParts(card).map((part) => (part.type === "blank" && part.value && (part.by === from || (!part.by && part.color === USERS[from].color))
+        ? { ...part, by: to, color: USERS[to].color }
+        : part)),
+    }))])));
+    if (currentUser === from) setCurrentUser(to);
   };
   const inviteCollaborator = (user) => {
     // the inviter gets a tag too, the first time anyone joins
@@ -1779,11 +1797,11 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               className={`user-label${currentUser === user ? " is-me" : ""}${collabDemo?.user === user ? " is-writing" : ""}`}
               style={{ "--user-color": USERS[user].color }}
               aria-pressed={currentUser === user}
-              aria-label={`以${USERS[user].name}的身份书写`}
+              aria-label={`${USERS[user].name}的标签：以 TA 的身份书写，或修改颜色`}
+              aria-expanded={tagMenuUser === user}
               onClick={() => {
                 setCurrentUser(user);
-                setShareNotice(`现在以「${USERS[user].name}」的身份书写`);
-                window.setTimeout(() => setShareNotice(""), 2200);
+                setTagMenuUser((open) => (open === user ? null : user));
               }}
             >
               <img src={icon(`user-label-${user}.svg`)} alt="" draggable={false} />
@@ -1791,6 +1809,30 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
             </button>
           ))}
         </div>
+        {tagMenuUser && collaborators.includes(tagMenuUser) && (
+          <>
+            <button className="tag-color-backdrop" type="button" aria-label="关闭标签颜色" onClick={() => setTagMenuUser(null)} />
+            <div className="tag-color-menu" role="dialog" aria-label="标签颜色" style={{ left: 20 + collaborators.indexOf(tagMenuUser) * 40 }}>
+              <p>标签颜色</p>
+              <div>
+                {[1, 2, 3, 4].map((user) => {
+                  const taken = user !== tagMenuUser && collaborators.includes(user);
+                  return (
+                    <button
+                      key={user}
+                      type="button"
+                      className={user === tagMenuUser ? "is-current" : ""}
+                      style={{ background: USERS[user].color }}
+                      disabled={taken}
+                      aria-label={taken ? `${USERS[user].name}已在使用这个颜色` : `换成${USERS[user].name}的颜色`}
+                      onClick={() => recolorCollaborator(tagMenuUser, user)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         <main className={`notebook-page page-slide notebook-page-${currentPageSide} page-pattern-${pagePattern}`}>
           <img
