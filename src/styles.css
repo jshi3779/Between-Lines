@@ -2054,3 +2054,55 @@ html, body, #root {
 .manage-audio-list > .library-item > .manage-audio-item { margin: 0; }
 .audio-recordings > .library-item > .library-item-delete,
 .manage-audio-list > .library-item > .library-item-delete { position: static; flex: none; }
+
+/* ---------- collaborators: tags at the top double as "write as" switches ---------- */
+.user-labels .user-label {
+  position: relative;
+  display: block;
+  width: 40px;
+  height: 68px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-6px);
+  transition: transform 0.2s ease;
+}
+.user-labels .user-label.is-me { transform: translateY(0); }
+.user-labels .user-label:focus-visible { outline: 2px solid #3465d6; outline-offset: 1px; }
+/* typing dots under the tag of whoever is writing in the demo */
+.user-typing {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  display: flex;
+  gap: 3px;
+  padding: 4px 6px;
+  border-radius: 99px;
+  background: var(--user-color);
+  transform: translateX(-50%);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 18%);
+}
+.user-typing i { width: 4px; height: 4px; border-radius: 50%; background: #fff; animation: user-typing 0.9s infinite ease-in-out; }
+.user-typing i:nth-child(2) { animation-delay: 0.15s; }
+.user-typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes user-typing { 0%, 60%, 100% { opacity: 0.35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+
+/* the demo page is read-only while it plays; the card being written glows in the writer's colour */
+.sentence-area.is-collab-demo { pointer-events: none; }
+.edit-sentence-card.is-remote-writing { border-radius: 20px; outline: 2px solid var(--remote-color); outline-offset: -1px; }
+
+.share-collab-demo {
+  width: 100%;
+  height: 42px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #242222;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.share-collab-demo + .share-cancel { margin-top: 10px; }
+.collab-notice { display: flex; align-items: center; gap: 7px; border: 0; white-space: nowrap; cursor: pointer; }
+.collab-notice i { width: 9px; height: 9px; border-radius: 50%; }

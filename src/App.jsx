@@ -28,7 +28,27 @@ const STARTER_SENTENCES = [
   "你的字迹仍像一场雨。",
   "十月的光线如今落得不一样了。",
 ];
-const USER_ACCENT_COLORS = ["#f6be45", "#3465d6", "#1d9c6c", "#ec4e99"];
+// Collaborators, in the order of their tags at the top of the page. A word card takes the colour
+// of whoever filled it in, and a new sentence card carries that person's avatar.
+const USERS = {
+  1: { name: "阿禾", color: "#f6be45" },
+  2: { name: "小满", color: "#ec4e99" },
+  3: { name: "叶子", color: "#3465d6" },
+  4: { name: "南风", color: "#1d9c6c" },
+};
+// The "watch friends write" demo: each step is one collaborator writing a sentence (BLANK marks a
+// word card left for someone else) or filling the next empty word card on the demo page.
+const BLANK = null;
+const COLLAB_SCRIPT = [
+  { user: 3, write: ["黄昏把影子", BLANK, "得很长"] },
+  { user: 2, fill: "拉" },
+  { user: 4, write: ["我们在", BLANK, "等一辆不来的车"] },
+  { user: 1, fill: "站台" },
+  { user: 2, write: ["风翻过", BLANK, "，替你读完"] },
+  { user: 3, fill: "信封" },
+  { user: 1, write: ["那句没写完的", BLANK] },
+  { user: 4, fill: "晚安" },
+];
 const textPart = (value) => ({ type: "text", value });
 // Capsule dates are "YYYY-MM-DD" keys (local time), so they compare correctly as strings.
 const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -235,6 +255,11 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const [shareNotice, setShareNotice] = useState("");
   const [recentPhotos, setRecentPhotos] = useState(savedLibrary?.recentPhotos ?? []);
   const [audioClips, setAudioClips] = useState(savedLibrary?.audioClips ?? []);
+  // who is writing on this device; picked by tapping a tag at the top of the page
+  const [currentUser, setCurrentUser] = useState(() => (USERS[savedLibrary?.currentUser] ? savedLibrary.currentUser : 1));
+  const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
+  const [collabNotice, setCollabNotice] = useState("");
+  const collabRun = useRef(null);
   // Built-in library items can't be removed from the source lists, so deleting one hides it.
   const [hiddenLibrary, setHiddenLibrary] = useState(() => ({ sentences: [], words: [], photos: [], ...savedLibrary?.hiddenLibrary }));
   const hideLibraryItem = (kind, key) => setHiddenLibrary((hidden) => (hidden[kind].includes(key) ? hidden : { ...hidden, [kind]: [...hidden[kind], key] }));
@@ -414,7 +439,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
 
   const appendSentence = (parts, focusText = false) => {
     if (!canAddSentence) return false;
-    const avatar = Math.floor(Math.random() * 4) + 1;
+    const avatar = currentUser;
     const nextIndex = currentSentenceCards.length;
     const independentParts = parts.map((part) => part.type === "blank"
       ? { ...part, id: ++blankId.current }
@@ -593,7 +618,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                       value: limitedValue,
                       photo: undefined,
                       audio: undefined,
-                      color: limitedValue ? part.color ?? USER_ACCENT_COLORS[Math.floor(Math.random() * USER_ACCENT_COLORS.length)] : undefined,
+                      color: limitedValue ? (limitedValue === part.value && part.color) || USERS[currentUser].color : undefined,
+                      by: limitedValue ? (limitedValue === part.value && part.by) || currentUser : undefined,
                     }
                   : part,
               ),
@@ -1102,6 +1128,87 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     };
   }, [currentPage, currentSentenceCards]);
 
+  /* ---------- multi-writer demo ---------- */
+  // Plays COLLAB_SCRIPT on a fresh page: each collaborator types their sentence a character at a
+  // time, or fills an empty word card in their own colour. Tapping the notice stops it; whatever
+  // was written stays on the page.
+  const stopCollabDemo = (message = "") => {
+    if (collabRun.current) collabRun.current.cancelled = true;
+    collabRun.current = null;
+    setCollabDemo(null);
+    setCollabNotice(message);
+    if (message) window.setTimeout(() => setCollabNotice((current) => (current === message ? "" : current)), 3200);
+  };
+  const runCollabDemo = async () => {
+    stopCollabDemo();
+    const run = { cancelled: false };
+    collabRun.current = run;
+    const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+    const page = pageCount + 1;
+    document.activeElement?.blur?.();
+    setIsShareOpen(false);
+    setBlankEditor(null);
+    setSentencePicker(null);
+    setIsEditingCard(false);
+    setPageCount(page);
+    setCurrentPage(page);
+    setCollabNotice("多人共写演示中 · 点这里停止");
+    const updateCard = (index, change) => setSentenceCards((cards) => ({
+      ...cards,
+      [page]: (cards[page] ?? []).map((card, cardIndex) => (cardIndex === index ? change(card) : card)),
+    }));
+    let cardCount = 0;
+    await wait(700);
+    for (const step of COLLAB_SCRIPT) {
+      if (run.cancelled) return;
+      if (step.write) {
+        const index = cardCount++;
+        setSentenceCards((cards) => ({ ...cards, [page]: [...(cards[page] ?? []), { avatar: step.user, parts: [textPart("")] }] }));
+        setCollabDemo({ user: step.user, page, index });
+        await wait(500);
+        for (const piece of step.write) {
+          if (run.cancelled) return;
+          if (piece === BLANK) {
+            const id = ++blankId.current;
+            updateCard(index, (card) => ({ ...card, parts: [...card.parts, { type: "blank", id, value: "" }, textPart("")] }));
+            await wait(450);
+            continue;
+          }
+          for (const char of piece) {
+            if (run.cancelled) return;
+            updateCard(index, (card) => {
+              const parts = [...card.parts];
+              const last = parts[parts.length - 1];
+              parts[parts.length - 1] = { ...last, value: last.value + char };
+              return { ...card, parts };
+            });
+            await wait(110);
+          }
+        }
+      } else {
+        // the first still-empty word card on the demo page
+        const target = await new Promise((resolve) => setSentenceCards((cards) => {
+          const list = cards[page] ?? [];
+          let found = null;
+          list.some((card, index) => cardParts(card).some((part) => (part.type === "blank" && !part.value && !part.photo && !part.audio ? (found = { index, id: part.id }) : false)));
+          resolve(found);
+          return cards;
+        }));
+        if (!target) continue;
+        setCollabDemo({ user: step.user, page, index: target.index });
+        await wait(900);
+        if (run.cancelled) return;
+        updateCard(target.index, (card) => ({
+          ...card,
+          parts: card.parts.map((part) => (part.type === "blank" && part.id === target.id ? { ...part, value: step.fill, color: USERS[step.user].color, by: step.user } : part)),
+        }));
+      }
+      await wait(650);
+    }
+    if (!run.cancelled) stopCollabDemo("演示完成：每个词卡的颜色，就是填它的那个人");
+  };
+  useEffect(() => () => { if (collabRun.current) collabRun.current.cancelled = true; }, []);
+
   /* ---------- saving ---------- */
   // Writes this notebook and the shared library. With `includeLiveEdit`, the card being typed in is
   // read from the DOM too, since typing only reaches state when the card blurs.
@@ -1133,6 +1240,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       recentPhotos: recentPhotos.map(withoutMediaUrl),
       audioClips: audioClips.map(withoutMediaUrl),
       hiddenLibrary,
+      currentUser,
     });
   };
   const writeSaveRef = useRef(writeSave);
@@ -1146,7 +1254,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       onTitleChangeRef.current?.(notebookTitle || "无标题");
     }, 400);
     return () => clearTimeout(timer);
-  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary]);
+  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary, currentUser]);
 
   // Closing the tab, backgrounding the app or leaving the notebook can't wait for the debounce.
   useEffect(() => {
@@ -1621,16 +1729,38 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                   </button>
                 ))}
               </div>
+              <button className="share-collab-demo" type="button" onClick={runCollabDemo}>▶ 演示多人一起写一首诗</button>
               <button className="share-cancel" type="button" onClick={() => setIsShareOpen(false)}>取消</button>
             </section>
           </div>
         )}
 
         {shareNotice && <div className="share-notice" role="status">{shareNotice}</div>}
+        {collabNotice && (
+          <button className="share-notice collab-notice" type="button" role="status" onClick={() => stopCollabDemo()}>
+            {collabDemo && <i style={{ background: USERS[collabDemo.user].color }} />}
+            {collabDemo ? `${USERS[collabDemo.user].name} 正在写… · 点这里停止` : collabNotice}
+          </button>
+        )}
 
         <div className="user-labels" aria-label="笔记本协作者">
           {[1, 2, 3, 4].map((user) => (
-            <img key={user} src={icon(`user-label-${user}.svg`)} alt={`用户 ${user}`} />
+            <button
+              key={user}
+              type="button"
+              className={`user-label${currentUser === user ? " is-me" : ""}${collabDemo?.user === user ? " is-writing" : ""}`}
+              style={{ "--user-color": USERS[user].color }}
+              aria-pressed={currentUser === user}
+              aria-label={`以${USERS[user].name}的身份书写`}
+              onClick={() => {
+                setCurrentUser(user);
+                setShareNotice(`现在以「${USERS[user].name}」的身份书写`);
+                window.setTimeout(() => setShareNotice(""), 2200);
+              }}
+            >
+              <img src={icon(`user-label-${user}.svg`)} alt="" draggable={false} />
+              {collabDemo?.user === user && <span className="user-typing" aria-hidden="true"><i /><i /><i /></span>}
+            </button>
           ))}
         </div>
 
@@ -1679,7 +1809,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
           />
         </nav>
 
-        <section ref={sentenceAreaRef} className={`sentence-area${currentCapsule ? " is-sealed" : ""}`} aria-label="句子区域" onScroll={placeCardToolbar}>
+        <section ref={sentenceAreaRef} className={`sentence-area${currentCapsule ? " is-sealed" : ""}${collabDemo ? " is-collab-demo" : ""}`} style={collabDemo ? { "--remote-color": USERS[collabDemo.user].color } : undefined} aria-label="句子区域" onScroll={placeCardToolbar}>
           {currentCapsule && (
             <div className="page-capsule-cover" role="note" aria-label={`这页已封存为时间胶囊，${capsuleOpenLabel(currentCapsule.openAt)}`}>
               <img className="capsule-string" src={icon("capsule-string.svg")} alt="" />
@@ -1693,7 +1823,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
             const cardHeight = visualLines > 3 ? Math.max(SENTENCE_CARD_MIN_HEIGHT, contentHeight + 20) : SENTENCE_CARD_MIN_HEIGHT + (visualLines - 1) * 30;
             return (
             <div
-              className={`edit-sentence-card sentence-lines-${assetLines}${visualLines > 3 ? " is-extended" : ""}${activeSentenceIndex === index ? " is-active" : ""}`}
+              className={`edit-sentence-card sentence-lines-${assetLines}${visualLines > 3 ? " is-extended" : ""}${activeSentenceIndex === index ? " is-active" : ""}${collabDemo?.page === currentPage && collabDemo.index === index ? " is-remote-writing" : ""}`}
               style={{ "--sentence-card-height": `${cardHeight}px` }}
               aria-label={`第 ${index + 1} 个句子卡`}
               key={index}
