@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 import { SAMPLE_CAPSULES, pagesForCapsules } from "./sampleCapsules";
+import { useTinted } from "./tint";
 import { LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
@@ -39,6 +40,8 @@ const USERS = {
 // The "watch friends write" demo: each step is one collaborator writing a sentence (BLANK marks a
 // word card left for someone else) or filling the next empty word card on the demo page.
 const BLANK = null;
+// collaborator artwork recoloured to the colour picked for that person in this notebook
+const TintedImg = ({ src, from, to, ...rest }) => <img src={useTinted(src, from, to)} {...rest} />;
 const COLLAB_SCRIPT = [
   { user: 3, write: ["黄昏把影子", BLANK, "得很长"] },
   { user: 2, fill: "拉" },
@@ -264,6 +267,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     return [USERS[savedLibrary?.currentUser] ? savedLibrary.currentUser : 1];
   });
   const [tagMenuUser, setTagMenuUser] = useState(null); // whose tag's colour menu is open
+  const [tagColors, setTagColors] = useState(saved?.tagColors ?? {}); // { user: "#hex" } picked in this notebook
+  const colorOf = (user) => tagColors[user] ?? USERS[user]?.color;
   const [isInvitePicking, setIsInvitePicking] = useState(false); // share sheet: pick the invited friend's colour
   const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
   const [collabNotice, setCollabNotice] = useState("");
@@ -391,18 +396,16 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     window.setTimeout(() => setShareNotice(""), 1800);
     if (collaborators.length < 4) setIsInvitePicking(true);
   };
-  const recolorCollaborator = (from, to) => {
-    setTagMenuUser(null);
-    if (from === to || collaborators.includes(to)) return;
-    setCollaborators((list) => list.map((user) => (user === from ? to : user)));
+  const recolorCollaborator = (user, hex) => {
+    const previous = colorOf(user);
+    if (!hex || hex.toLowerCase() === previous.toLowerCase()) return;
+    setTagColors((colors) => ({ ...colors, [user]: hex }));
     setSentenceCards((cards) => Object.fromEntries(Object.entries(cards).map(([page, list]) => [page, list.map((card) => ({
       ...card,
-      avatar: card.avatar === from ? to : card.avatar,
-      parts: cardParts(card).map((part) => (part.type === "blank" && part.value && (part.by === from || (!part.by && part.color === USERS[from].color))
-        ? { ...part, by: to, color: USERS[to].color }
+      parts: cardParts(card).map((part) => (part.type === "blank" && part.value && (part.by === user || (!part.by && part.color === previous))
+        ? { ...part, by: user, color: hex }
         : part)),
     }))])));
-    if (currentUser === from) setCurrentUser(to);
   };
   const inviteCollaborator = (user) => {
     // the inviter gets a tag too, the first time anyone joins
@@ -648,7 +651,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                       value: limitedValue,
                       photo: undefined,
                       audio: undefined,
-                      color: limitedValue ? (limitedValue === part.value && part.color) || USERS[currentUser].color : undefined,
+                      color: limitedValue ? (limitedValue === part.value && part.color) || colorOf(currentUser) : undefined,
                       by: limitedValue ? (limitedValue === part.value && part.by) || currentUser : undefined,
                     }
                   : part,
@@ -1231,7 +1234,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         if (run.cancelled) return;
         updateCard(target.index, (card) => ({
           ...card,
-          parts: card.parts.map((part) => (part.type === "blank" && part.id === target.id ? { ...part, value: step.fill, color: USERS[step.user].color, by: step.user } : part)),
+          parts: card.parts.map((part) => (part.type === "blank" && part.id === target.id ? { ...part, value: step.fill, color: colorOf(step.user), by: step.user } : part)),
         }));
       }
       await wait(650);
@@ -1258,6 +1261,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       activeSentenceIndexes,
       capsules,
       collaborators,
+      tagColors,
       title: notebookTitle,
       pageTone,
       cardTone,
@@ -1286,7 +1290,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       onTitleChangeRef.current?.(notebookTitle || "无标题");
     }, 400);
     return () => clearTimeout(timer);
-  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, collaborators, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary, currentUser]);
+  }, [pageCount, currentPage, sentenceCards, activeSentenceIndexes, capsules, collaborators, tagColors, notebookTitle, pageTone, cardTone, inkTone, pagePattern, hasSeedSentence, libraryWords, customLibraryCategories, recentPhotos, audioClips, hiddenLibrary, currentUser]);
 
   // Closing the tab, backgrounding the app or leaving the notebook can't wait for the debounce.
   useEffect(() => {
@@ -1784,7 +1788,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         {shareNotice && <div className="share-notice" role="status">{shareNotice}</div>}
         {collabNotice && (
           <button className="share-notice collab-notice" type="button" role="status" onClick={() => stopCollabDemo()}>
-            {collabDemo && <i style={{ background: USERS[collabDemo.user].color }} />}
+            {collabDemo && <i style={{ background: colorOf(collabDemo.user) }} />}
             {collabDemo ? `${USERS[collabDemo.user].name} 正在写… · 点这里停止` : collabNotice}
           </button>
         )}
@@ -1795,7 +1799,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               key={user}
               type="button"
               className={`user-label${currentUser === user ? " is-me" : ""}${collabDemo?.user === user ? " is-writing" : ""}`}
-              style={{ "--user-color": USERS[user].color }}
+              style={{ "--user-color": colorOf(user) }}
               aria-pressed={currentUser === user}
               aria-label={`${USERS[user].name}的标签：以 TA 的身份书写，或修改颜色`}
               aria-expanded={tagMenuUser === user}
@@ -1804,7 +1808,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                 setTagMenuUser((open) => (open === user ? null : user));
               }}
             >
-              <img src={icon(`user-label-${user}.svg`)} alt="" draggable={false} />
+              <TintedImg src={icon(`user-label-${user}.svg`)} from={USERS[user].color} to={tagColors[user]} alt="" draggable={false} />
               {collabDemo?.user === user && <span className="user-typing" aria-hidden="true"><i /><i /><i /></span>}
             </button>
           ))}
@@ -1815,20 +1819,29 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
             <div className="tag-color-menu" role="dialog" aria-label="标签颜色" style={{ left: 20 + collaborators.indexOf(tagMenuUser) * 40 }}>
               <p>标签颜色</p>
               <div>
-                {[1, 2, 3, 4].map((user) => {
-                  const taken = user !== tagMenuUser && collaborators.includes(user);
+                {[1, 2, 3, 4].map((preset) => {
+                  const hex = USERS[preset].color;
+                  const taken = collaborators.some((user) => user !== tagMenuUser && colorOf(user).toLowerCase() === hex.toLowerCase());
                   return (
                     <button
-                      key={user}
+                      key={preset}
                       type="button"
-                      className={user === tagMenuUser ? "is-current" : ""}
-                      style={{ background: USERS[user].color }}
+                      className={colorOf(tagMenuUser).toLowerCase() === hex.toLowerCase() ? "is-current" : ""}
+                      style={{ background: hex }}
                       disabled={taken}
-                      aria-label={taken ? `${USERS[user].name}已在使用这个颜色` : `换成${USERS[user].name}的颜色`}
-                      onClick={() => recolorCollaborator(tagMenuUser, user)}
+                      aria-label={taken ? "这个颜色已被其他协作者使用" : "换成这个颜色"}
+                      onClick={() => { recolorCollaborator(tagMenuUser, hex); setTagMenuUser(null); }}
                     />
                   );
                 })}
+                {(() => {
+                  const custom = ![1, 2, 3, 4].some((preset) => USERS[preset].color.toLowerCase() === colorOf(tagMenuUser).toLowerCase());
+                  return (
+                    <label className={`tag-color-custom${custom ? " is-current is-set" : ""}`} style={custom ? { background: colorOf(tagMenuUser) } : undefined} aria-label="自定义颜色">
+                      <input type="color" value={colorOf(tagMenuUser)} onChange={(event) => recolorCollaborator(tagMenuUser, event.target.value)} />
+                    </label>
+                  );
+                })()}
               </div>
             </div>
           </>
@@ -1879,7 +1892,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
           />
         </nav>
 
-        <section ref={sentenceAreaRef} className={`sentence-area${currentCapsule ? " is-sealed" : ""}${collabDemo ? " is-collab-demo" : ""}`} style={collabDemo ? { "--remote-color": USERS[collabDemo.user].color } : undefined} aria-label="句子区域" onScroll={placeCardToolbar}>
+        <section ref={sentenceAreaRef} className={`sentence-area${currentCapsule ? " is-sealed" : ""}${collabDemo ? " is-collab-demo" : ""}`} style={collabDemo ? { "--remote-color": colorOf(collabDemo.user) } : undefined} aria-label="句子区域" onScroll={placeCardToolbar}>
           {currentCapsule && (
             <div className="page-capsule-cover" role="note" aria-label={`这页已封存为时间胶囊，${capsuleOpenLabel(currentCapsule.openAt)}`}>
               <img className="capsule-string" src={icon("capsule-string.svg")} alt="" />
@@ -1937,9 +1950,11 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               }}
             >
               <span className="edit-sentence-background" aria-hidden="true" />
-              <img
+              <TintedImg
                 className="sentence-avatar"
                 src={icon(`user-${card.avatar}.svg`)}
+                from={USERS[card.avatar]?.color ?? "#000000"}
+                to={tagColors[card.avatar]}
                 alt={`用户 ${card.avatar}`}
               />
               <div className="sentence-editor">

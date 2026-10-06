@@ -2161,3 +2161,18 @@ html, body, #root {
 .tag-color-menu button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; }
 .tag-color-menu button.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #242222; }
 .tag-color-menu button:disabled { opacity: 0.25; cursor: default; }
+/* any colour: a rainbow swatch over the native colour picker; it shows the picked colour once used */
+.tag-color-custom {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: conic-gradient(#e0632c, #f6be45, #3d8a4f, #1f9c96, #3a4f84, #8a5cb0, #c8577a, #e0632c);
+  cursor: pointer;
+}
+.tag-color-custom::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font: 600 15px/1 system-ui, sans-serif; text-shadow: 0 0 3px rgb(0 0 0 / 45%); pointer-events: none; }
+.tag-color-custom.is-set::after { content: none; }
+.tag-color-custom.is-current { overflow: visible; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #242222; }
+.tag-color-custom input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
