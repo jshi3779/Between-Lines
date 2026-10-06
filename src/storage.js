@@ -110,3 +110,16 @@ export const importBackup = async (backup) => {
     if (blob) await saveMedia(id, blob);
   }
 };
+
+/* ---------- activity feed (the shelf's bell): who wrote what, newest first ---------- */
+export const ACTIVITY_KEY = `${PREFIX}activity`;
+// Repeated edits by the same person to the same card within ten minutes update one entry
+// instead of piling up.
+export const logActivity = (entry) => {
+  const list = loadJSON(ACTIVITY_KEY) ?? [];
+  const now = Date.now();
+  const same = list.findIndex((item) => item.notebookId === entry.notebookId && item.user === entry.user && item.cardKey && item.cardKey === entry.cardKey && now - item.at < 600000);
+  const next = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, at: now, read: false, ...entry };
+  if (same >= 0) list.splice(same, 1);
+  saveJSON(ACTIVITY_KEY, [next, ...list].slice(0, 60));
+};

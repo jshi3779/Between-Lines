@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { IMG } from "./homeShelfAssets.js";
 import "./home-shelf.css";
 import { SAMPLE_CAPSULES } from "./sampleCapsules";
-import { LIBRARY_KEY, SHELF_KEY, clearAllSaved, exportBackup, importBackup, loadJSON, notebookKey, removeSaved, saveJSON, storageUsage } from "./storage";
+import { ACTIVITY_KEY, LIBRARY_KEY, SHELF_KEY, clearAllSaved, exportBackup, importBackup, loadJSON, notebookKey, removeSaved, saveJSON, storageUsage } from "./storage";
 
 // Ported near-verbatim from public/prototypes/home-shelf/index.html (the standalone shelf
 // prototype) so the hand-tuned physics/geometry (spring inertia, silhouette gap solving,
@@ -277,6 +277,7 @@ function initShelf(onOpenNotebookRef, signal) {
     if (!saveJSON(SHELF_KEY, { version: 1, newBookSeq, shelves })) toast('保存失败：浏览器存储空间不足');
   }
   function refreshNotebook(id) {
+    updateBell();
     for (const S of [TOP, BOTTOM, ...extraShelves]) if (S.books.some(x => x.id === id)) S.rebuild();
   }
   function renameNotebook(id, title) {
@@ -610,7 +611,48 @@ function initShelf(onOpenNotebookRef, signal) {
     if (suppressClick) return;
     if (S.k > 0.98 && !S.anim && Math.abs(S.pos - v) < 0.02) onOpenNotebookRef.current(b); else S.goTo(v);
   }
-  $('bell').addEventListener('click', () => toast('暂时没有新通知'), { signal });
+  /* ---------- bell: who wrote something new in which notebook ---------- */
+  const bell = $('bell');
+  const NAMES = { 1: '阿禾', 2: '小满', 3: '叶子', 4: '南风' };
+  const me = () => loadJSON(LIBRARY_KEY)?.currentUser ?? 1;                // your own writing doesn't notify you
+  if (loadJSON(ACTIVITY_KEY) === null) {                                   // a few examples on the built-in notebooks
+    const ago = m => Date.now() - m * 60000;
+    saveJSON(ACTIVITY_KEY, [
+      { id: 'sample-1', notebookId: 'green', notebookTitle: '听风说路过人间', user: 2, name: '小满', color: '#ec4e99', kind: 'sentence', text: '风把路口折成一页信纸', page: 1, at: ago(25), read: false },
+      { id: 'sample-2', notebookId: 'dnavy', notebookTitle: '月亮裁缝铺', user: 4, name: '南风', color: '#1d9c6c', kind: 'word', text: '针脚', page: 1, at: ago(190), read: false },
+      { id: 'sample-3', notebookId: 'navy', notebookTitle: '扣指成诗', user: 3, name: '叶子', color: '#3465d6', kind: 'photo', text: '', page: 1, at: ago(26 * 60), read: true },
+      { id: 'sample-4', notebookId: 'gray', notebookTitle: '把黄昏折进信封', user: 2, name: '小满', color: '#ec4e99', kind: 'audio', text: '', page: 1, at: ago(50 * 60), read: true },
+    ]);
+  }
+  const feed = () => (loadJSON(ACTIVITY_KEY) ?? []).filter(a => a && a.user !== me());
+  function updateBell() { bell.classList.toggle('hasUnread', feed().some(a => !a.read)); }
+  const timeAgo = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? '刚刚' : m < 60 ? m + ' 分钟前' : m < 1440 ? Math.round(m / 60) + ' 小时前' : Math.round(m / 1440) + ' 天前'; };
+  const what = a => a.kind === 'sentence' ? '写了新句子' : a.kind === 'word' ? '填了词卡「' + esc(a.text) + '」' : a.kind === 'photo' ? '放了一张图片' : '录了一段声音';
+  function openActivity() {
+    const items = feed().sort((x, y) => y.at - x.at);
+    const titleOf = a => allNotebooks().find(n => n.b.id === a.notebookId)?.b.title ?? a.notebookTitle;
+    modalRoot.style.pointerEvents = 'auto';
+    modalRoot.innerHTML = `<div class="modalBack searchBack"><div class="modalCard searchCard activityCard" role="dialog" aria-label="通知">
+      <h3>通知</h3>
+      <div class="searchResults" role="list">${items.length ? items.map((a, k) => `<button type="button" class="searchHit activityHit${a.read ? '' : ' isUnread'}" role="listitem" data-k="${k}">
+          <img src="${import.meta.env.BASE_URL}icons/user-${a.user}.svg" alt="" style="box-shadow:0 0 0 2px ${a.color || '#ccc'}">
+          <span><b>${esc(a.name || NAMES[a.user] || '协作者')} 在《${esc(titleOf(a))}》${what(a)}</b>${a.kind === 'sentence' && a.text ? `<small class="quote">「${esc(a.text)}」</small>` : ''}<small>第 ${a.page || 1} 页 · ${timeAgo(a.at)}</small></span></button>`).join('')
+        : '<p class="searchEmpty">还没有新动态<br>朋友在你的笔记本里写了东西，会出现在这里</p>'}</div>
+    </div></div>`;
+    addSheetClose();
+    const back = modalRoot.querySelector('.modalBack');
+    back.addEventListener('click', e => { if (e.target === back) closeModal(); });
+    modalRoot.querySelectorAll('.activityHit').forEach(btn => btn.addEventListener('click', () => {
+      const a = items[Number(btn.dataset.k)], n = allNotebooks().find(x => x.b.id === a.notebookId);
+      if (!n) { toast('这本笔记本已经被删除了'); return; }
+      openFromSearch(n, a.page || 1);
+    }));
+    // seen: everything shown is read now
+    saveJSON(ACTIVITY_KEY, (loadJSON(ACTIVITY_KEY) ?? []).map(a => ({ ...a, read: true })));
+    updateBell();
+  }
+  bell.addEventListener('click', openActivity, { signal });
+  updateBell();
   window.addEventListener('keydown', e => {
     if (modalRoot.firstChild) { if (e.key === 'Escape') closeModal(); return; }   // typing in the edit dialog must not also move a shelf
     const S = activeShelf;

@@ -228,3 +228,14 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .ownHint[hidden]{display:none}
 /* edit button: the editor's settings (sliders) icon, in the same yellow as the trash and the design cover's icons */
 .editBtn .sl{display:block;right:5px;top:2px;width:21px;height:21px;background:#ffce5d;-webkit-mask:url("/icons/settings.svg") center / contain no-repeat;mask:url("/icons/settings.svg") center / contain no-repeat}
+/* bell (cut out of the old title artwork); the red dot shows only with unread activity */
+#bell{left:333px;top:71px;width:32px;height:34px;background:url("/icons/notification-bell.png") center / 15.7px 19px no-repeat}
+#bell.hasUnread::after{content:"";position:absolute;left:18px;top:10px;width:6px;height:6px;border-radius:50%;background:#ec6f72}
+/* activity rows */
+.activityHit img{flex:none;width:30px;height:30px;border-radius:50%}
+.activityHit span{display:flex;flex-direction:column;gap:3px;white-space:normal}
+.activityHit b{font-weight:400;line-height:18px}
+.activityHit small.quote{color:#242222;font-size:12px}
+.activityHit.isUnread{background:#fff4e2}
+.activityHit.isUnread b::before{content:"";display:inline-block;width:6px;height:6px;margin:0 6px 2px 0;border-radius:50%;background:#ec6f72}
+.activityCard .searchEmpty{line-height:1.7}

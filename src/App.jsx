@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 import { SAMPLE_CAPSULES, pagesForCapsules } from "./sampleCapsules";
 import { peekTint, useTinted } from "./tint";
-import { LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
+import { logActivity, LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
 // the sentence area starts at y=190, so content may run to y=776.
@@ -271,6 +271,9 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const [tagMenuUser, setTagMenuUser] = useState(null); // whose tag's colour menu is open
   const [tagColors, setTagColors] = useState(saved?.tagColors ?? {}); // { user: "#hex" } picked in this notebook
   const colorOf = (user) => tagColors[user] ?? USERS[user]?.color;
+  const recordActivity = (user, kind, text, page, cardKey) => logActivity({
+    notebookId, notebookTitle: notebookTitle || "无标题", user, name: USERS[user]?.name, color: colorOf(user), kind, text, page, cardKey,
+  });
   const [, bumpTint] = useReducer((n) => n + 1, 0); // re-render once a tinted card background is ready
   const [isInvitePicking, setIsInvitePicking] = useState(false); // share sheet: pick the invited friend's colour
   const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
@@ -353,6 +356,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const insertPhotoCard = (photo) => {
     if (!blankEditor) return;
     const { page, index, id } = blankEditor;
+    recordActivity(currentUser, "photo", "", page, `${page}-${index}-${id}`);
     setSentenceCards((cards) => ({
       ...cards,
       [page]: (cards[page] ?? []).map((card, cardIndex) => cardIndex !== index ? card : {
@@ -368,6 +372,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const insertAudioCard = (clip) => {
     if (!blankEditor) return;
     const { page, index, id } = blankEditor;
+    recordActivity(currentUser, "audio", "", page, `${page}-${index}-${id}`);
     setSentenceCards((cards) => ({
       ...cards,
       [page]: (cards[page] ?? []).map((card, cardIndex) => cardIndex !== index ? card : {
@@ -641,6 +646,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
 
   const updateBlankWord = (index, id, value) => {
     const limitedValue = limitWordCardValue(value);
+    if (limitedValue) recordActivity(currentUser, "word", limitedValue, currentPage, `${currentPage}-${index}-${id}`);
     setSentenceCards((cards) => ({
       ...cards,
       [currentPage]: (cards[currentPage] ?? []).map((card, cardIndex) =>
@@ -1240,6 +1246,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
           parts: card.parts.map((part) => (part.type === "blank" && part.id === target.id ? { ...part, value: step.fill, color: colorOf(step.user), by: step.user } : part)),
         }));
       }
+      if (step.write) recordActivity(step.user, "sentence", step.write.map((piece) => piece ?? "＿").join(""), page, `demo-${page}-${cardCount}`);
+      else recordActivity(step.user, "word", step.fill, page, `demo-${page}-fill-${step.fill}`);
       await wait(650);
     }
     if (!run.cancelled) stopCollabDemo("演示完成：每个词卡的颜色，就是填它的那个人");
@@ -2000,6 +2008,9 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                   onBlur={(event) => {
                     const key = `${currentPage}-${index}`;
                     if (skipSentenceBlur.current.delete(key)) return;
+                    const before = cardParts(card).map((part) => part.value ?? "").join("");
+                    const after = withoutCaretAnchor(event.currentTarget.textContent ?? "").trim();
+                    if (after && after !== before.trim()) recordActivity(currentUser, "sentence", after, currentPage, `${currentPage}-${index}`);
                     updateSentenceFromElement(index, event.currentTarget);
                   }}
                   onMouseUp={(event) => selectWord(index, event.currentTarget)}
