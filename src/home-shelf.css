@@ -26,7 +26,7 @@
 
 :root{
   --stage:#d9d7cf; --stage-grid:#cbc9c1; --stage-ink:#4a4740; --stage-mute:#6f6b62;
-  --marker:'ZCOOL KuaiLe','851 GBai Marker','Segoe UI',system-ui,sans-serif;
+  --marker:'851 GBai Marker','Segoe Print','Bradley Hand',cursive;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --stage:#17171a; --stage-grid:#232327; --stage-ink:#c9c5bc; --stage-mute:#8d8a83; } }
 :root[data-theme="dark"]{ --stage:#17171a; --stage-grid:#232327; --stage-ink:#c9c5bc; --stage-mute:#8d8a83; }
