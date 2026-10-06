@@ -102,12 +102,18 @@ function initShelf(onOpenNotebookRef, signal) {
       el.className = 'bk'; el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', b.title);
       el.style.top = '0px'; el.style.width = W + 'px'; el.style.height = H + 'px';
       const cv = b.cover ? 'left:-2.25px;top:-3.35px;width:176.9px;height:256.7px;' : 'left:-0.6px;top:0;width:' + (W + 0.6) + 'px;height:' + H + 'px;';
-      const spineFace = b.sp ? `background-image:url(${IMG[b.sp]});` : `background:${b.col};`;
+      // notebooks drawn in code borrow the brushed outline of the design art (as an alpha mask), so they match the design books
+      const rough = src => `-webkit-mask-image:url(${src});mask-image:url(${src});-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;`;
+      const spineMask = IMG[b.T <= 24 ? 'rect_dnavy' : b.T <= 44 ? 'rect_pink' : 'rect_green'];
+      const spineFace = b.sp ? `background-image:url(${IMG[b.sp]});` : `background:${b.col};${rough(spineMask)}`;
+      // the design cover art sits 2.25px left / 3.35px above a 173x250 cover, so line its outline up the same way
+      const coverMask = b.cover ? '' : rough(IMG.cover) + '-webkit-mask-size:102.3% 102.7%;mask-size:102.3% 102.7%;-webkit-mask-position:-2.25px -3.35px;mask-position:-2.25px -3.35px;';
       const spineInner = b.cover ? `<img class="str" src="${IMG.string}" alt="">` : (b.sp ? '' : `<div class="spineTxt"><span style="color:${b.tc}">${esc(b.title)}</span></div>`);
       el.innerHTML =
-        `<div class="face back" style="width:${W}px;height:${H}px;background:${b.col};transform:translateZ(${-b.T}px) rotateY(180deg)"></div>` +
+        `<div class="face back" style="width:${W}px;height:${H}px;background:${b.col};${coverMask}transform:translateZ(${-b.T}px) rotateY(180deg)"></div>` +
         `<div class="face spine" style="left:${-b.T / 2}px;width:${b.T}px;height:${H}px;${spineFace}transform:translateZ(${-b.T / 2}px) rotateY(-90deg)">${spineInner}</div>` +
         `<div class="face cover" style="${cv}">${coverHTML(b)}</div>`;
+      if (coverMask) el.querySelector('.ccss').style.cssText += coverMask + 'border-radius:0;';
       el.addEventListener('click', () => onBook(S, v, b));
       el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBook(S, v, b); } });
       const trashBtn = el.querySelector('.trashBtn'), editBtn = el.querySelector('.editBtn');
