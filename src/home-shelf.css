@@ -26,7 +26,7 @@
 
 :root{
   --stage:#d9d7cf; --stage-grid:#cbc9c1; --stage-ink:#4a4740; --stage-mute:#6f6b62;
-  --marker:'851 GBai Marker','Segoe UI',system-ui,sans-serif;
+  --marker:'ZCOOL KuaiLe','851 GBai Marker','Segoe UI',system-ui,sans-serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --stage:#17171a; --stage-grid:#232327; --stage-ink:#c9c5bc; --stage-mute:#8d8a83; } }
 :root[data-theme="dark"]{ --stage:#17171a; --stage-grid:#232327; --stage-ink:#c9c5bc; --stage-mute:#8d8a83; }
@@ -60,7 +60,7 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 /* ---------- 3D book row ---------- */
 #row{position:absolute;inset:0;pointer-events:none}
 .spineTxt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.spineTxt span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--marker);font-size:15px;letter-spacing:1px;white-space:nowrap}
+.spineTxt span{writing-mode:vertical-rl;text-orientation:sideways;transform:rotate(180deg);font-family:var(--marker);font-size:15px;letter-spacing:1px;white-space:nowrap}
 .bk{position:absolute;left:0;pointer-events:auto;cursor:pointer;transform-style:preserve-3d;transform-origin:0 50%;will-change:transform;
   -webkit-tap-highlight-color:transparent}
 .face{position:absolute;top:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
