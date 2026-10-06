@@ -90,7 +90,7 @@ function initShelf(onOpenNotebookRef, signal) {
     }
     function coverHTML(b) {
       const trashBtn = `<button type="button" class="trashBtn" aria-label="删除「${escAttr(b.title)}」" style="${b.cover ? 'left:140.7px;top:224.4px;right:auto;bottom:auto' : ''}"><img class="trash" src="${IMG.trash}" alt=""></button>`;
-      const editBtn = `<button type="button" class="editBtn" aria-label="编辑「${escAttr(b.title)}」">${b.cover ? '' : `<img class="sl" src="${IMG.sliders}" alt="">`}</button>`;
+      const editBtn = `<button type="button" class="editBtn" aria-label="编辑「${escAttr(b.title)}」">${b.cover ? '' : '<span class="sl" aria-hidden="true"></span>'}</button>`;
       if (b.cover) return `<img class="cimg" src="${IMG.cover}" alt="${escAttr(b.title)}">${avatarsHTML(b, ' coverDots')}${editBtn}${trashBtn}`;
       const fs = Math.min(20, Math.floor(1420 / [...b.title].length) / 10);   // long titles shrink to fit the cover
       const artStyle = b.coverImg ? `background-image:url(${b.coverImg});background-size:cover;background-position:center;` : '';

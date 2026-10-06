@@ -226,3 +226,5 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 .ownHint strong{font-size:17px;font-weight:400;color:#1d1c18}
 .ownHint span{font-size:12px}
 .ownHint[hidden]{display:none}
+/* edit button: the editor's settings (sliders) icon, in the same yellow as the trash and the design cover's icons */
+.editBtn .sl{display:block;right:5px;top:2px;width:21px;height:21px;background:#ffce5d;-webkit-mask:url("/icons/settings.svg") center / contain no-repeat;mask:url("/icons/settings.svg") center / contain no-repeat}
