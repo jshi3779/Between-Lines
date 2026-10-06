@@ -174,7 +174,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const initialPageCount = saved?.pageCount ?? (sampleCapsules ? pagesForCapsules(sampleCapsules) : 1);
   const [pageCount, setPageCount] = useState(initialPageCount);
   const [currentPage, setCurrentPage] = useState(() => Math.min(initialPage ?? saved?.currentPage ?? 1, initialPageCount));
-  const [sentenceCards, setSentenceCards] = useState(saved?.sentenceCards ?? { 1: GUIDE_SENTENCE_CARDS });
+  // A notebook you just made has only you in it, so its two example cards carry your avatar.
+  const [sentenceCards, setSentenceCards] = useState(() => saved?.sentenceCards ?? { 1: String(notebookId).startsWith("new") ? GUIDE_SENTENCE_CARDS.map((card) => ({ ...card, avatar: USERS[savedLibrary?.currentUser] ? savedLibrary.currentUser : 1 })) : GUIDE_SENTENCE_CARDS });
   const [activeSentenceIndexes, setActiveSentenceIndexes] = useState(saved?.activeSentenceIndexes ?? { 1: 1 });
   const [selectedWord, setSelectedWord] = useState(null);
   const [blankEditor, setBlankEditor] = useState(null);

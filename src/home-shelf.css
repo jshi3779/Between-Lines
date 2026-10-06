@@ -221,3 +221,8 @@ body{margin:0;background:var(--stage);color:var(--stage-ink);font-family:'Segoe 
 #title strong{font-size:34px;line-height:34px}
 /* room for the custom-colour swatch on the same row */
 .swatches{gap:6px}
+/* empty second shelf: an invitation to make your own notebook */
+.ownHint{position:absolute;left:50%;width:250px;height:120px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #b9b4a8;border-radius:16px;background:transparent;color:#5d594f;font-family:var(--marker);cursor:pointer;z-index:1}
+.ownHint strong{font-size:17px;font-weight:400;color:#1d1c18}
+.ownHint span{font-size:12px}
+.ownHint[hidden]{display:none}

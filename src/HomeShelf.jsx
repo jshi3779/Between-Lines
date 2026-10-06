@@ -127,8 +127,9 @@ function initShelf(onOpenNotebookRef, signal) {
         for (const [v, s] of S.slots) if (v < lo || v > hi) { s.el.remove(); S.slots.delete(v); }
       }
     }
-    function rebuild() { for (const s of S.slots.values()) s.el.remove(); S.slots.clear(); ensure(); render(); }   // new slots get no transform until a render runs; callers that don't already goTo() need this
+    function rebuild() { for (const s of S.slots.values()) s.el.remove(); S.slots.clear(); if (!S.N) return; ensure(); render(); }   // new slots get no transform until a render runs; callers that don't already goTo() need this
     function render() {
+      if (!S.N) return;
       const a = Math.round(S.pos); if (a !== S.A) { S.A = a; ensure(); }
       const fl = Math.floor(S.pos), f = S.pos - fl;
       const vs = [...S.slots.keys()].sort((x, y) => x - y);
@@ -195,12 +196,12 @@ function initShelf(onOpenNotebookRef, signal) {
     }
     function pushBook(spec) { if (spec.yc === undefined) spec.yc = cfg.BOT - vext(spec.T, spec.H, spec.phi) / 2; S.books.push(prep(spec)); recomputeGaps(S); rebuild(); }   // leaning bottom = standing bottom = BOT, so it's always exactly LINE_GAP from the line, closed or open
     function removeBook(v) {                                // false if refused (a shelf never drops below its last notebook)
-      if (S.books.length <= 1) return false;
+      if (S.books.length <= 1 && !cfg.allowEmpty) return false;
       const idx = mod(v, S.N);
       S.books.splice(idx, 1);
       S.cfg.clr = { closed: [], openL: [], openR: [] };              // the Figma-measured per-pair clearances no longer line up once the book count changes
       recomputeGaps(S);
-      S.anim = null; S.pos = Math.min(idx, S.books.length - 1); S.A = Math.round(S.pos);
+      S.anim = null; S.pos = Math.max(0, Math.min(idx, S.books.length - 1)); S.A = Math.round(S.pos);
       rebuild();
       return true;
     }
@@ -223,14 +224,18 @@ function initShelf(onOpenNotebookRef, signal) {
 
   /* ---------- saved shelves: which notebooks each shelf holds, their titles, and user-made notebooks' looks ---------- */
   const saved = loadJSON(SHELF_KEY);
-  const FIGMA_BOOKS = Object.fromEntries(TOP_BOOKS.concat(BOT_BOOKS).map(b => [b.id, b]));
+  const FIGMA_BOOKS = Object.fromEntries(TOP_BOOKS.map(b => [b.id, b]));
+  const DESIGN_ONLY = new Set(BOT_BOOKS.map(b => b.id));          // the old second design shelf, no longer on the page
   const restoreBook = s => FIGMA_BOOKS[s.id]
     ? Object.assign(FIGMA_BOOKS[s.id], { title: s.title || FIGMA_BOOKS[s.id].title })
     : { id: s.id, T: s.T, H: s.H, phi: s.phi, col: s.col, tc: s.tc, title: s.title, coverImg: s.coverImg || null };
-  const savedShelves = Array.isArray(saved?.shelves) ? saved.shelves.map(list => (Array.isArray(list) ? list.filter(s => s && s.id).map(restoreBook) : [])) : [];
+  const savedShelves = Array.isArray(saved?.shelves) ? saved.shelves.map(list => (Array.isArray(list) ? list.filter(s => s && s.id && !DESIGN_ONLY.has(s.id)).map(restoreBook) : [])) : [];
+  // every notebook the user made, in shelf order, refilled five to a shelf starting on the second shelf
+  const ownBooks = savedShelves.slice(1).flat().filter(b => !FIGMA_BOOKS[b.id]);
+  const ownShelves = []; for (let i = 0; i < ownBooks.length; i += 5) ownShelves.push(ownBooks.slice(i, i + 5));
   const shelfBooks = (index, original) => (savedShelves[index]?.length ? savedShelves[index] : original);
   const sameIds = (a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id);
-  const topBooks = shelfBooks(0, TOP_BOOKS), botBooks = shelfBooks(1, BOT_BOOKS);
+  const topBooks = shelfBooks(0, TOP_BOOKS), botBooks = ownShelves[0] ?? [];
   for (const b of topBooks) b.yc = TOP_BOT - vext(b.T, b.H, b.phi) / 2;
   for (const b of botBooks) b.yc = BOTTOM_BOT - vext(b.T, b.H, b.phi) / 2;
   const noClr = () => ({ closed: [], openL: [], openR: [] });   // the Figma-measured clearances only fit the original line-up
@@ -239,8 +244,8 @@ function initShelf(onOpenNotebookRef, signal) {
     clr: sameIds(topBooks, TOP_BOOKS) ? { closed: [3, 9, 4, 3, 6], openL: [3, 9, 1, 3, 6], openR: [3, 15, 4, 3, 6] } : noClr()
   });   // closest silhouette distance per neighbouring pair, measured in Figma
   const BOTTOM = makeShelf({
-    row: $('row2'), books: botBooks, BOT: BOTTOM_BOT, CX: 197.5, X0: 10.92, pos0: Math.min(2, botBooks.length - 1), k0: 0,
-    clr: sameIds(botBooks, BOT_BOOKS) ? { closed: [11, 15, 3, 5, 6], openL: [11, 15, 3, 5, 6], openR: [11, 15, 3, 5, 6] } : noClr()
+    row: $('row2'), books: botBooks, BOT: BOTTOM_BOT, CX: 197.5, X0: 0, pos0: Math.max(0, Math.min(2, botBooks.length - 1)), k0: 1,
+    genericClr: 5, clr: noClr(), allowEmpty: true
   });
   let activeShelf = TOP;
 
@@ -292,27 +297,35 @@ function initShelf(onOpenNotebookRef, signal) {
     lastBOT = BOT;
     contentH = Math.max(BOT + SHELF_GAP, boundary + 697);                  // padded so THIS shelf can scroll flush to y=115 (screen height 812 minus the header's 115)
     shelvesInner.style.height = contentH + 'px';
-    const S = makeShelf({ row, books: [], BOT, CX: 197.5, X0: 0, pos0: 0, k0: 1, genericClr: 5, clr: { closed: [], openL: [], openR: [] } });
+    const S = makeShelf({ row, books: [], BOT, CX: 197.5, X0: 0, pos0: 0, k0: 1, genericClr: 5, clr: { closed: [], openL: [], openR: [] }, allowEmpty: true });
     extraShelves.push(S); shelfRanges.push({ start: boundary, end: Infinity, S });
     return S;
   }
   function addNotebook() {
-    const last = extraShelves[extraShelves.length - 1];
-    const isNewShelf = !last || last.books.length >= 5;
-    const target = isNewShelf ? createShelf() : last;
+    const own = [BOTTOM, ...extraShelves], room = own.find(S => S.books.length < 5);
+    const isNewShelf = !room;
+    const target = room || createShelf();
     const spec = makeNewBookSpec();
     target.pushBook(spec);
     activeShelf = target; target.goTo(target.books.length - 1);           // open the notebook just added
-    const shelfNo = extraShelves.indexOf(target) + 3;                     // shelves 1 and 2 are the original two
+    const shelfNo = [TOP, BOTTOM, ...extraShelves].indexOf(target) + 1;
     toast((isNewShelf ? '新建第 ' + shelfNo + ' 层书架 · ' : '已加入第 ' + shelfNo + ' 层书架 · ') + spec.title);
     if (isNewShelf) shelvesWrap.scrollBy({ top: BOT_STEP, behavior: 'smooth' });   // the page now exceeds 2 shelves: page up by exactly one shelf's worth
-    persistShelf();
+    persistShelf(); updateOwnHint();
   }
-  for (const list of savedShelves.slice(2)) {                // shelves the user grew last time
-    if (!list.length) continue;
+  for (const list of ownShelves.slice(1)) {                  // shelves the user grew last time
     const S = createShelf();
     for (const b of list) S.pushBook(b);
   }
+  // an empty second shelf invites the user to make their first notebook
+  const ownHint = document.createElement('button');
+  ownHint.type = 'button'; ownHint.className = 'ownHint';
+  ownHint.style.top = (BOTTOM_BOT - 150) + 'px';
+  ownHint.innerHTML = '<strong>这一层留给你自己的诗集</strong><span>点这里，或点下方「新建笔记本」</span>';
+  ownHint.addEventListener('click', () => addNotebook(), { signal });
+  shelvesInner.appendChild(ownHint); extraNodes.push(ownHint);
+  function updateOwnHint() { ownHint.hidden = BOTTOM.books.length > 0; }
+  updateOwnHint();
 
   /* ---------- input ---------- */
   let toastT;
@@ -493,8 +506,8 @@ function initShelf(onOpenNotebookRef, signal) {
     modalRoot.querySelector('.mCancel').addEventListener('click', closeModal);
     modalRoot.querySelector('.mDanger').addEventListener('click', () => {
       const ok = S.removeBook(v); closeModal();
-      if (ok) { removeSaved(notebookKey(b.id)); persistShelf(); }
-      toast(ok ? '已删除「' + b.title + '」' : '每层至少保留 1 本笔记本');
+      if (ok) { removeSaved(notebookKey(b.id)); persistShelf(); updateOwnHint(); }
+      toast(ok ? '已删除「' + b.title + '」' : '设计稿书架至少保留 1 本笔记本');
     });
   }
   // downscale/re-encode an uploaded image client-side so a phone-camera photo doesn't bloat the page; returns a data URI
