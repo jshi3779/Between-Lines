@@ -1790,7 +1790,6 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                 ))}
               </div>
               )}
-              <button className="share-collab-demo" type="button" onClick={runCollabDemo}>▶ 演示多人一起写一首诗</button>
               <button className="share-cancel" type="button" onClick={() => { setIsShareOpen(false); setIsInvitePicking(false); }}>取消</button>
             </section>
           </div>

@@ -2092,18 +2092,6 @@ html, body, #root {
 .sentence-area.is-collab-demo { pointer-events: none; }
 .edit-sentence-card.is-remote-writing { border-radius: 20px; outline: 2px solid var(--remote-color); outline-offset: -1px; }
 
-.share-collab-demo {
-  width: 100%;
-  height: 42px;
-  margin-top: 18px;
-  border: 0;
-  border-radius: 12px;
-  background: #242222;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-}
-.share-collab-demo + .share-cancel { margin-top: 10px; }
 .collab-notice { display: flex; align-items: center; gap: 7px; border: 0; white-space: nowrap; cursor: pointer; }
 .collab-notice i { width: 9px; height: 9px; border-radius: 50%; }
 
