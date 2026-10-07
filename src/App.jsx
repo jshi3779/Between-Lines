@@ -31,7 +31,7 @@ const STARTER_SENTENCES = [
 ];
 // Collaborators, in the order of their tags at the top of the page. A word card takes the colour
 // of whoever filled it in, and a new sentence card carries that person's avatar.
-const USERS = {
+export const USERS = {
   1: { name: "阿禾", color: "#f6be45" },
   2: { name: "小满", color: "#ec4e99" },
   3: { name: "叶子", color: "#3465d6" },
@@ -275,7 +275,6 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     notebookId, notebookTitle: notebookTitle || "无标题", user, name: USERS[user]?.name, color: colorOf(user), kind, text, page, cardKey,
   });
   const [, bumpTint] = useReducer((n) => n + 1, 0); // re-render once a tinted card background is ready
-  const [isInvitePicking, setIsInvitePicking] = useState(false); // share sheet: pick the invited friend's colour
   const [collabDemo, setCollabDemo] = useState(null); // { user, page, index } while the demo runs
   const [collabNotice, setCollabNotice] = useState("");
   const collabRun = useRef(null);
@@ -390,10 +389,18 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     new Audio(url).play().catch(() => {});
   };
 
+  const inviteLink = `${window.location.origin}${window.location.pathname}#invite-${notebookId}`;
   const shareTo = async (channel) => {
-    if (channel === "系统分享" && navigator.share) {
+    if (channel === "复制链接") {
       try {
-        await navigator.share({ title: notebookTitle || "无标题", text: "邀请你一起在「扣指成诗」里共写一句话。" });
+        await navigator.clipboard.writeText(inviteLink);
+        setShareNotice("邀请链接已复制，发给朋友就能加入");
+      } catch {
+        setShareNotice("复制失败，请长按下方链接复制");
+      }
+    } else if (channel === "系统分享" && navigator.share) {
+      try {
+        await navigator.share({ title: notebookTitle || "无标题", text: "邀请你一起在「扣指成诗」里共写一首诗。", url: inviteLink });
         setShareNotice("已打开系统分享");
       } catch {
         return;
@@ -401,8 +408,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     } else {
       setShareNotice(`已准备分享到${channel}`);
     }
-    window.setTimeout(() => setShareNotice(""), 1800);
-    if (collaborators.length < 4) setIsInvitePicking(true);
+    window.setTimeout(() => setShareNotice(""), 2200);
   };
   const recolorCollaborator = (user, hex) => {
     const previous = colorOf(user);
@@ -415,14 +421,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         : part)),
     }))])));
   };
-  const inviteCollaborator = (user) => {
-    // the inviter gets a tag too, the first time anyone joins
-    setCollaborators((list) => [...new Set([...(list.length ? list : [currentUser]), user])].sort());
-    setIsInvitePicking(false);
-    setIsShareOpen(false);
-    setShareNotice(`${USERS[user].name} 加入了这本笔记本`);
-    window.setTimeout(() => setShareNotice(""), 2200);
-  };
+
 
   const startRecording = async () => {
     if (isRecording || audioRecorder.current) return;
@@ -1751,7 +1750,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         )}
 
         {isShareOpen && (
-          <div className="share-dialog" role="dialog" aria-modal="true" aria-label="分享笔记本" onClick={() => { setIsShareOpen(false); setIsInvitePicking(false); }}>
+          <div className="share-dialog" role="dialog" aria-modal="true" aria-label="分享笔记本" onClick={() => setIsShareOpen(false)}>
             <section className="share-sheet" onClick={(event) => event.stopPropagation()}>
               <div className="content-editor-sheet-background" aria-hidden="true">
                 <img className="panel-top" src={icon("panel-top.svg")} alt="" />
@@ -1760,20 +1759,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               </div>
               <div className="share-sheet-handle" />
               <h2>分享笔记本</h2>
-              <p>邀请朋友一起把句子写完</p>
-              {isInvitePicking ? (
-                <div className="invite-colors">
-                  <p>给这位朋友选一个颜色，TA 填的词卡就是这个颜色</p>
-                  <div>
-                    {[1, 2, 3, 4].filter((user) => !collaborators.includes(user) && !(collaborators.length === 0 && user === currentUser)).map((user) => (
-                      <button key={user} type="button" style={{ "--user-color": USERS[user].color }} onClick={() => inviteCollaborator(user)}>
-                        <img src={icon(`user-${user}.svg`)} alt="" draggable={false} />
-                        <small>{USERS[user].name}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
+              <p>朋友点开链接，就能加入这本笔记本一起写</p>
               <div className="share-channel-grid">
                 {[
                   ["微信", "wechat"],
@@ -1789,8 +1775,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                   </button>
                 ))}
               </div>
-              )}
-              <button className="share-cancel" type="button" onClick={() => { setIsShareOpen(false); setIsInvitePicking(false); }}>取消</button>
+              <p className="share-link" title="邀请链接">{inviteLink}</p>
+              <button className="share-cancel" type="button" onClick={() => setIsShareOpen(false)}>取消</button>
             </section>
           </div>
         )}
