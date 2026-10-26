@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 import { SAMPLE_CAPSULES, pagesForCapsules } from "./sampleCapsules";
 import { peekTint, useTinted } from "./tint";
-import { splitSuggestion, suggestOpenings } from "./aiSuggest";
+import { splitSuggestion, writeFromTheme } from "./aiSuggest";
 import { logActivity, LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
@@ -200,7 +200,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   // offset are captured when the panel opens: tapping a sentence blurs the card, which saves and
   // re-renders it, so a DOM range taken earlier would point at detached nodes.
   const [sentencePicker, setSentencePicker] = useState(null); // { page, index, ai? }
-  const [aiIdeas, setAiIdeas] = useState({ loading: false, lines: [], round: 0 });
+  // 「AI 写一句」: the theme the writer typed, and the sentence written for it
+  const [aiDraft, setAiDraft] = useState({ theme: "", loading: false, line: "", round: 0, asked: "" });
   const sentencePickerTarget = useRef(null);
   const editorSheetRef = useRef(null);
   const sentenceAreaRef = useRef(null);
@@ -810,17 +811,20 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     };
     setBlankEditor(null);
     setSentencePicker({ page: currentPage, index, ai });
-    if (ai) loadAiIdeas(0);
+    if (ai) setAiDraft({ theme: "", loading: false, line: "", round: 0, asked: "" });
   };
 
-  const loadAiIdeas = (round) => {
-    setAiIdeas((ideas) => ({ ...ideas, loading: true }));
-    suggestOpenings({ title: notebookTitle, written: ownSentences, round })
-      .then((lines) => setAiIdeas({ loading: false, lines, round }));
+  // same theme again = 「换一句」 (next round); a new theme starts over
+  const writeWithAi = (themeText) => {
+    const theme = themeText.trim();
+    const round = theme === aiDraft.asked && aiDraft.line ? aiDraft.round + 1 : 0;
+    setAiDraft((draft) => ({ ...draft, theme, loading: true }));
+    writeFromTheme({ theme, title: notebookTitle, written: ownSentences, round })
+      .then((line) => setAiDraft((draft) => ({ ...draft, loading: false, line, round, asked: theme })));
   };
 
-  // An AI line goes into the card with its "＿" turned into empty word cards for friends; an empty
-  // card takes the line as is, otherwise it is added after what is already there.
+  // An AI line becomes a sentence card, its "＿" turned into empty word cards for friends: an empty
+  // or example card takes it, otherwise it goes into a new card at the end of the page.
   const fillAiSuggestion = (line) => {
     const { page, index } = sentencePicker;
     const { parts } = sentencePickerTarget.current;
@@ -828,7 +832,12 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     const plain = parts.every((part) => part.type === "text");
     const text = withoutCaretAnchor(parts.map((part) => part.value ?? "").join("")).trim();
     const isEmpty = plain && (!text || GUIDE_TEXTS.includes(text));   // an example card is replaced, not added to
-    const nextParts = isEmpty ? suggestion : [...parts, ...suggestion];
+    if (!isEmpty) {
+      setSentencePicker(null);
+      appendSentence(suggestion);
+      return;
+    }
+    const nextParts = suggestion;
     setSentenceCards((cards) => ({
       ...cards,
       [page]: (cards[page] ?? []).map((card, cardIndex) => (cardIndex === index ? { ...card, parts: nextParts } : card)),
@@ -2168,7 +2177,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
 
         {(blankEditor || sentencePicker) && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={sentencePicker?.ai ? "AI 帮你起个头" : { sentence: "句卡库", word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}>
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={sentencePicker?.ai ? "AI 写一句" : { sentence: "句卡库", word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}>
             <section
               ref={editorSheetRef}
               className={`content-editor-sheet is-${sheetMode}${showTypeTabs ? " has-tabs" : ""}`}
@@ -2183,7 +2192,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                 <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
               </div>
               <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => { setBlankEditor(null); setSentencePicker(null); }}>×</button>
-              {sheetMode === "sentence" && <h3 className="content-editor-title is-text">{sentencePicker?.ai ? "AI 帮你起个头" : "句卡库"}</h3>}
+              {sheetMode === "sentence" && <h3 className="content-editor-title is-text">{sentencePicker?.ai ? "AI 写一句" : "句卡库"}</h3>}
               {showTypeTabs && (
                 <nav className="content-editor-tabs" aria-label="内容类型">
                   {["word", "photo", "audio"].map((mode) => (
@@ -2202,22 +2211,37 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
 
               <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
               {sheetMode === "sentence" && sentencePicker?.ai && (
-                <div className="ai-ideas">
-                  <p className="ai-ideas-hint">
-                    {ownSentences.length ? "接着往下写，" : "还不知道怎么开头？"}根据《{notebookTitle || "无标题"}》想了几句。选一句放进句卡，空白处留给朋友填。
-                  </p>
-                  {aiIdeas.loading ? (
-                    <p className="ai-ideas-loading" role="status">正在想<i /><i /><i /></p>
-                  ) : (
-                    <div className="sentence-picker-list">
-                      {aiIdeas.lines.map((line) => (
-                        <button key={line} type="button" onClick={() => fillAiSuggestion(line)}>
-                          {splitSuggestion(line).map((part, k) => (part.type === "blank" ? <em key={k} className="ai-blank" aria-label="空白词卡" /> : <span key={k}>{part.value}</span>))}
-                        </button>
-                      ))}
+                <div className="ai-compose">
+                  <p className="ai-ideas-hint">用一句话告诉 AI 你想写什么，它会写一张句卡，空白处留给朋友填。</p>
+                  <form className="ai-input" onSubmit={(event) => { event.preventDefault(); if (!aiDraft.loading) writeWithAi(aiDraft.theme); }}>
+                    <input
+                      id="ai-theme"
+                      autoFocus
+                      value={aiDraft.theme}
+                      maxLength={30}
+                      placeholder="比如：初到新城市，和朋友分开了"
+                      aria-label="想写的主题"
+                      onChange={(event) => { const theme = event.currentTarget.value; setAiDraft((draft) => ({ ...draft, theme })); }}
+                    />
+                    <button type="submit" disabled={aiDraft.loading}>生成</button>
+                  </form>
+                  <div className="ai-chips" aria-label="试试这些主题">
+                    {[notebookTitle && notebookTitle !== "无标题" && notebookTitle !== "未命名诗本" ? notebookTitle : null, "初到新城市", "想念朋友", "雨天"].filter(Boolean).map((theme) => (
+                      <button key={theme} type="button" disabled={aiDraft.loading} onClick={() => writeWithAi(theme)}>{theme}</button>
+                    ))}
+                  </div>
+                  {aiDraft.loading && <p className="ai-ideas-loading" role="status">正在写<i /><i /><i /></p>}
+                  {!aiDraft.loading && aiDraft.line && (
+                    <div className="ai-result">
+                      <p className="ai-result-card">
+                        {splitSuggestion(aiDraft.line).map((part, k) => (part.type === "blank" ? <em key={k} className="ai-blank" aria-label="空白词卡" /> : <span key={k}>{part.value}</span>))}
+                      </p>
+                      <div className="ai-result-actions">
+                        <button className="is-primary" type="button" onClick={() => fillAiSuggestion(aiDraft.line)}>放进句卡</button>
+                        <button type="button" onClick={() => writeWithAi(aiDraft.asked)}>换一句</button>
+                      </div>
                     </div>
                   )}
-                  <button className="ai-ideas-more" type="button" disabled={aiIdeas.loading} onClick={() => loadAiIdeas(aiIdeas.round + 1)}>换一批</button>
                 </div>
               )}
               {sheetMode === "sentence" && !sentencePicker?.ai && (

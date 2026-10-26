@@ -1,7 +1,8 @@
-// "AI 帮你起个头" — a stand-in for a real model, so the flow can be designed and tested now.
-// It reads the notebook's title and what has been written, picks the closest theme and offers
-// three openings; "＿" marks a word card left for a friend to fill. Swap `suggestOpenings` for a
-// model call later — the panel only needs an async function returning an array of strings.
+// 「AI 写一句」 — a stand-in for a real model, so the flow can be designed and tested now.
+// The writer types a theme in their own words; it picks the closest theme (or, for a theme it
+// has no lines for, works the words into a template) and returns one sentence card, where "＿"
+// marks a word card left for a friend. Swap `writeFromTheme` for a model call later — the
+// panel only needs an async function returning a string.
 
 const THEMES = [
   {
@@ -20,7 +21,7 @@ const THEMES = [
   {
     keys: ["雨", "秋", "十月", "黄昏", "落叶", "霜", "冷"],
     lines: [
-      "如今，十月的光落下来，已经不一样了。",
+      "雨落在 ＿ 上，很轻很轻",
       "雨下到第三天，我开始想念 ＿",
       "黄昏把影子 ＿ 得很长",
       "秋天在窗外慢慢地 ＿",
@@ -40,33 +41,39 @@ const THEMES = [
   },
 ];
 
-const DEFAULT_LINES = [
-  "今天想和你们说一件小事：＿",
-  "我把这一页留给 ＿",
-  "如果只能写一句，我会写 ＿",
-  "刚刚窗外经过了一只 ＿",
-  "我们第一次见面，是在 ＿",
-  "有些话，写下来就不那么难说了。",
-];
-
-// the title says what the notebook is about, so it counts three times as much as the sentences
-const pickTheme = (title, written) => {
+// the theme is chosen from what the writer typed, not from earlier sentences
+const findTheme = (topic) => {
   let best = null;
   let bestScore = 0;
   for (const theme of THEMES) {
-    const score = theme.keys.reduce((sum, key) => sum + (title.includes(key) ? 3 : 0) + (written.includes(key) ? 1 : 0), 0);
+    const score = theme.keys.reduce((sum, key) => sum + (topic.includes(key) ? 1 : 0), 0);
     if (score > bestScore) { best = theme; bestScore = score; }
   }
-  return best ? best.lines : DEFAULT_LINES;
+  return best ? best.lines : null;
 };
 
-/** Three openings, rotating through the theme on each "换一批"; skips lines already on the page. */
-export const suggestOpenings = async ({ title = "", written = [], round = 0 }) => {
-  await new Promise((resolve) => setTimeout(resolve, 700)); // feels like the model is thinking
-  const pool = pickTheme(title, written.join("")).filter((line) => !written.some((w) => w.includes(line.replace(/\s*＿\s*/g, ""))));
-  const lines = pool.length >= 3 ? pool : [...pool, ...DEFAULT_LINES];
-  const start = (round * 3) % lines.length;
-  return [0, 1, 2].map((k) => lines[(start + k) % lines.length]);
+// for themes with no prepared lines: the writer's own words go into the sentence
+const TEMPLATES = [
+  "{t}的时候，我想起了 ＿",
+  "如果{t}有颜色，大概是 ＿",
+  "我把{t}折好，寄给 ＿",
+  "关于{t}，我只记得 ＿",
+  "{t}那天，窗外有 ＿",
+];
+
+/** One sentence card for a theme typed in natural language ("初到新城市", "想念朋友"…). */
+export const writeFromTheme = async ({ theme = "", title = "", written = [], round = 0 }) => {
+  await new Promise((resolve) => setTimeout(resolve, 900)); // feels like the model is thinking
+  const topic = theme.trim() || title;
+  const all = written.join("");
+  const lines = findTheme(topic);
+  if (lines) {
+    const fresh = lines.filter((line) => !all.includes(line.replace(/\s*＿\s*/g, "")));
+    const pool = fresh.length ? fresh : lines;
+    return pool[round % pool.length];
+  }
+  const words = topic.replace(/^(写|关于|我想写|想写)/, "").replace(/[，。！？、\s]+$/g, "").replace(/(那天|那时|的时候|时候)$/, "").slice(0, 10) || "今天";
+  return TEMPLATES[round % TEMPLATES.length].replace("{t}", words);
 };
 
 /** "十月，我一个人搬到 ＿" → [text, blank]: the blank becomes an empty word card. */

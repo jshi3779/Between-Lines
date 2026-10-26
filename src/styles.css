@@ -2204,31 +2204,23 @@ html, body, #root {
 .invite-message { margin: 10px 0 0; color: #b53a2f; font-size: 13px; }
 .share-link + .share-cancel { margin-top: 14px; }
 
-/* AI 帮你起个头: suggested openings, "＿" shown as an empty word card */
-.ai-ideas { display: grid; gap: 10px; }
+/* AI 写一句: the writer types a theme, gets one sentence card back; "＿" shows as an empty word card */
+.ai-compose { display: grid; gap: 10px; }
 .ai-ideas-hint { margin: 0; color: #7d7a74; font-size: 12.5px; line-height: 1.6; }
-.ai-ideas .sentence-picker-list button { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
-.ai-blank {
-  display: inline-block;
-  width: 44px;
-  height: 20px;
-  border: 1.5px dashed #79746d;
-  border-radius: 10px;
-  background: #e9e4da;
-}
-.ai-ideas-loading { display: flex; align-items: center; gap: 4px; margin: 6px 0; color: #79746d; font-size: 14px; }
+.ai-input { display: flex; align-items: center; height: 34px; padding: 0 5px 0 12px; border-radius: 17px; background: #ecedf0; }
+.ai-input input { flex: 1; min-width: 0; border: 0; background: transparent; color: #242222; font: inherit; font-size: 13px; outline: none; }
+.ai-input button { padding: 4px 12px; border: 0; border-radius: 13px; background: #1e2026; color: #fff; font: inherit; font-size: 12px; cursor: pointer; }
+.ai-input button:disabled { opacity: 0.5; cursor: default; }
+.ai-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-chips button { padding: 3px 10px; border: 0; border-radius: 10px; background: #efe7db; color: #5a5c62; font: inherit; font-size: 12px; cursor: pointer; }
+.ai-chips button:disabled { opacity: 0.5; cursor: default; }
+.ai-blank { display: inline-block; width: 44px; height: 20px; border: 1.5px dashed #79746d; border-radius: 10px; background: #e9e4da; }
+.ai-ideas-loading { display: flex; align-items: center; gap: 4px; margin: 4px 0; color: #79746d; font-size: 14px; }
 .ai-ideas-loading i { width: 5px; height: 5px; border-radius: 50%; background: #79746d; animation: user-typing 0.9s infinite ease-in-out; }
 .ai-ideas-loading i:nth-child(2) { animation-delay: 0.15s; }
 .ai-ideas-loading i:nth-child(3) { animation-delay: 0.3s; }
-.ai-ideas-more {
-  justify-self: start;
-  padding: 6px 14px;
-  border: 0;
-  border-radius: 14px;
-  background: #efe7db;
-  color: #242222;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.ai-ideas-more:disabled { opacity: 0.5; cursor: default; }
+.ai-result { display: grid; gap: 8px; }
+.ai-result-card { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: 0; padding: 12px 14px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1.5px #ecedf0; color: #1e2026; font-size: 15px; line-height: 22px; }
+.ai-result-actions { display: flex; gap: 8px; }
+.ai-result-actions button { flex: 1; height: 34px; border: 0; border-radius: 12px; background: #ecedf0; color: #242222; font: inherit; font-size: 13px; cursor: pointer; }
+.ai-result-actions button.is-primary { background: #1e2026; color: #fff; }
