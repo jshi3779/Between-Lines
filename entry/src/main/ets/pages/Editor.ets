@@ -392,11 +392,6 @@ struct Editor {
   @Builder
   aiSheet() {
     Column({ space: 12 }) {
-      Text('用一句话告诉 AI 你想写什么，它会写一张句卡，空白处留给朋友填。')
-        .fontSize(13)
-        .fontColor('#7D7A74')
-        .lineHeight(20)
-
       Row({ space: 8 }) {
         TextInput({ text: this.aiTheme, placeholder: '比如：初到新城市，和朋友分开了' })
           .maxLength(30)
