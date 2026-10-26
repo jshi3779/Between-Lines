@@ -2212,7 +2212,6 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
               {sheetMode === "sentence" && sentencePicker?.ai && (
                 <div className="ai-compose">
-                  <p className="ai-ideas-hint">用一句话告诉 AI 你想写什么，它会写一张句卡，空白处留给朋友填。</p>
                   <form className="ai-input" onSubmit={(event) => { event.preventDefault(); if (!aiDraft.loading) writeWithAi(aiDraft.theme); }}>
                     <input
                       id="ai-theme"

@@ -2206,7 +2206,6 @@ html, body, #root {
 
 /* AI 写一句: the writer types a theme, gets one sentence card back; "＿" shows as an empty word card */
 .ai-compose { display: grid; gap: 10px; }
-.ai-ideas-hint { margin: 0; color: #7d7a74; font-size: 12.5px; line-height: 1.6; }
 .ai-input { display: flex; align-items: center; height: 34px; padding: 0 5px 0 12px; border-radius: 17px; background: #ecedf0; }
 .ai-input input { flex: 1; min-width: 0; border: 0; background: transparent; color: #242222; font: inherit; font-size: 13px; outline: none; }
 .ai-input button { padding: 4px 12px; border: 0; border-radius: 13px; background: #1e2026; color: #fff; font: inherit; font-size: 12px; cursor: pointer; }
