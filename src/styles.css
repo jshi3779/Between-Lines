@@ -1491,7 +1491,7 @@ html, body, #root {
   position: absolute;
   z-index: 5;
   box-sizing: border-box;
-  width: 248px;
+  width: 306px;
   transform: translateX(var(--page-shift, 0px));
   display: flex;
   height: 62px;
@@ -2203,3 +2203,32 @@ html, body, #root {
 .invite-decline { margin-top: 14px; padding: 6px; border: 0; background: transparent; color: #6b6a66; font: inherit; font-size: 13px; cursor: pointer; }
 .invite-message { margin: 10px 0 0; color: #b53a2f; font-size: 13px; }
 .share-link + .share-cancel { margin-top: 14px; }
+
+/* AI 帮你起个头: suggested openings, "＿" shown as an empty word card */
+.ai-ideas { display: grid; gap: 10px; }
+.ai-ideas-hint { margin: 0; color: #7d7a74; font-size: 12.5px; line-height: 1.6; }
+.ai-ideas .sentence-picker-list button { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
+.ai-blank {
+  display: inline-block;
+  width: 44px;
+  height: 20px;
+  border: 1.5px dashed #79746d;
+  border-radius: 10px;
+  background: #e9e4da;
+}
+.ai-ideas-loading { display: flex; align-items: center; gap: 4px; margin: 6px 0; color: #79746d; font-size: 14px; }
+.ai-ideas-loading i { width: 5px; height: 5px; border-radius: 50%; background: #79746d; animation: user-typing 0.9s infinite ease-in-out; }
+.ai-ideas-loading i:nth-child(2) { animation-delay: 0.15s; }
+.ai-ideas-loading i:nth-child(3) { animation-delay: 0.3s; }
+.ai-ideas-more {
+  justify-self: start;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #efe7db;
+  color: #242222;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ai-ideas-more:disabled { opacity: 0.5; cursor: default; }

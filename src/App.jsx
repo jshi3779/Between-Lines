@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { SENTENCE_LIBRARY, WORD_CATEGORIES, WORD_LIBRARY } from "./contentLibrary";
 import { SAMPLE_CAPSULES, pagesForCapsules } from "./sampleCapsules";
 import { peekTint, useTinted } from "./tint";
+import { splitSuggestion, suggestOpenings } from "./aiSuggest";
 import { logActivity, LIBRARY_KEY, loadJSON, loadMedia, notebookKey, saveJSON, saveMedia } from "./storage";
 
 // A page holds as many cards as fit above its bottom rule (drawn at y≈780 on the 812 canvas);
@@ -19,7 +20,7 @@ const ADD_PAGE_GAP = 110;
 const ADD_PAGE_THRESHOLD = 110;
 const PAGE_TURN_DISTANCE = 90;
 const PAGE_SETTLE_MS = 280;
-const CARD_TOOLBAR_WIDTH = 248;
+const CARD_TOOLBAR_WIDTH = 306;
 const CARD_TOOLBAR_HEIGHT = 62;
 const CARD_TOOLBAR_GAP = 8;
 const CARD_TOOLBAR_MIN_TOP = 96;
@@ -89,6 +90,8 @@ const GUIDE_SENTENCE_CARDS = [
   },
   { avatar: 2, parts: [textPart("如今，十月的光落下来，已经不一样了。")] },
 ];
+// the example sentences a new notebook starts with: they are placeholders, not the writer's own words
+const GUIDE_TEXTS = GUIDE_SENTENCE_CARDS.map((card) => card.parts.map((part) => part.value).join(""));
 const cardParts = (card) => card.parts ?? [textPart(card.text ?? "")];
 const WORD_CARD_WIDTHS = [44, 65, 81, 101, 125, 143];
 const AUDIO_WAVEFORM = [4, 8, 12, 7, 15, 10, 6, 13, 17, 9, 5, 12, 8, 16, 11, 6, 14, 9, 17, 10, 5, 13, 8, 15];
@@ -130,6 +133,13 @@ const SentenceCardGlyph = ({ className, color }) => (
   <svg className={className} viewBox="0 0 32 32" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M6.2 8.6c6.6-.4 13.2-.5 19.7-.2.5 4.8.4 9.7.1 14.6-6.6.4-13.2.4-19.8.1-.4-4.8-.4-9.7 0-14.5Z" />
     <path d="M10 13.2h12M10 17.2h8.4" />
+  </svg>
+);
+
+const AiGlyph = ({ className, color }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M14 7.5c.9 4.6 2.9 6.6 7.5 7.5-4.6.9-6.6 2.9-7.5 7.5-.9-4.6-2.9-6.6-7.5-7.5 4.6-.9 6.6-2.9 7.5-7.5Z" />
+    <path d="M23 6v4M21 8h4M23.5 20.5v3M22 22h3" />
   </svg>
 );
 
@@ -189,7 +199,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   // { page, index } of the card the sentence library will fill. The card's content and caret
   // offset are captured when the panel opens: tapping a sentence blurs the card, which saves and
   // re-renders it, so a DOM range taken earlier would point at detached nodes.
-  const [sentencePicker, setSentencePicker] = useState(null);
+  const [sentencePicker, setSentencePicker] = useState(null); // { page, index, ai? }
+  const [aiIdeas, setAiIdeas] = useState({ loading: false, lines: [], round: 0 });
   const sentencePickerTarget = useRef(null);
   const editorSheetRef = useRef(null);
   const sentenceAreaRef = useRef(null);
@@ -783,7 +794,8 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
     setBlankEditor({ page: currentPage, index, id, value: "", single: true });
   };
 
-  const openSentencePicker = () => {
+  const openSentencePicker = (options) => {
+    const ai = options?.ai === true;
     if (!currentSentenceCards.length) return;
     const index = activeSentenceIndex != null && activeSentenceIndex < currentSentenceCards.length
       ? activeSentenceIndex
@@ -797,7 +809,33 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
       offset: range && element.contains(range.startContainer) ? modelOffsetAtCaret(element, range) : Infinity,
     };
     setBlankEditor(null);
-    setSentencePicker({ page: currentPage, index });
+    setSentencePicker({ page: currentPage, index, ai });
+    if (ai) loadAiIdeas(0);
+  };
+
+  const loadAiIdeas = (round) => {
+    setAiIdeas((ideas) => ({ ...ideas, loading: true }));
+    suggestOpenings({ title: notebookTitle, written: ownSentences, round })
+      .then((lines) => setAiIdeas({ loading: false, lines, round }));
+  };
+
+  // An AI line goes into the card with its "＿" turned into empty word cards for friends; an empty
+  // card takes the line as is, otherwise it is added after what is already there.
+  const fillAiSuggestion = (line) => {
+    const { page, index } = sentencePicker;
+    const { parts } = sentencePickerTarget.current;
+    const suggestion = splitSuggestion(line).map((part) => (part.type === "blank" ? { type: "blank", id: ++blankId.current, value: "" } : part));
+    const plain = parts.every((part) => part.type === "text");
+    const text = withoutCaretAnchor(parts.map((part) => part.value ?? "").join("")).trim();
+    const isEmpty = plain && (!text || GUIDE_TEXTS.includes(text));   // an example card is replaced, not added to
+    const nextParts = isEmpty ? suggestion : [...parts, ...suggestion];
+    setSentenceCards((cards) => ({
+      ...cards,
+      [page]: (cards[page] ?? []).map((card, cardIndex) => (cardIndex === index ? { ...card, parts: nextParts } : card)),
+    }));
+    pendingSentenceFocus.current = { page, index, focusText: true };
+    setSentencePicker(null);
+    setIsEditingCard(true);
   };
 
   // Inserts at a model offset (blank cards count as their text); a caret inside a blank card
@@ -1055,6 +1093,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
   const managedPhotos = [...recentPhotos, ...MANAGE_LIBRARY_PHOTOS].filter(isPhotoShown);
   const managedWords = [...new Set([...libraryWords, ...WORD_LIBRARY.filter(({ category }) => libraryCategory === "全部" || category === libraryCategory).map(({ word }) => word)])]
     .filter((word) => word.includes(librarySearch.trim()) && !hiddenLibrary.words.includes(word));
+  const ownSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter((text) => text && !GUIDE_TEXTS.includes(text));
   const writtenSentences = Object.values(sentenceCards).flat().map((card) => cardParts(card).map((part) => part.value).join("")).filter(Boolean);
   const sentenceLibrary = [...new Set([...SENTENCE_LIBRARY, ...writtenSentences])].filter((sentence) => !hiddenLibrary.sentences.includes(sentence));
   const sheetMode = sentencePicker ? "sentence" : editorMode;
@@ -2056,10 +2095,25 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
           >
             <button
               type="button"
+              className="card-toolbar-button is-ai"
+              aria-haspopup="dialog"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => openSentencePicker({ ai: true })}
+            >
+              <span className="card-toolbar-icon" aria-hidden="true">
+                <span className="card-toolbar-disc">
+                  <img className="card-toolbar-disc-base" src={icon("library-tab-image-base.svg")} alt="" />
+                  <AiGlyph className="card-toolbar-disc-glyph" color="#FDFDFB" />
+                </span>
+              </span>
+              <span>AI</span>
+            </button>
+            <button
+              type="button"
               className="card-toolbar-button"
               aria-haspopup="dialog"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={openSentencePicker}
+              onClick={() => openSentencePicker()}
             >
               <span className="card-toolbar-icon" aria-hidden="true">
                 <span className="card-toolbar-disc">
@@ -2114,7 +2168,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
         <p className="sr-only" aria-live="polite">第 {currentPage} 页，共 {pageCount} 页</p>
 
         {(blankEditor || sentencePicker) && (
-          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={{ sentence: "句卡库", word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}>
+          <div className="blank-word-dialog" role="dialog" aria-modal="true" aria-label={sentencePicker?.ai ? "AI 帮你起个头" : { sentence: "句卡库", word: "词卡", photo: "图片", audio: "音频" }[sheetMode]}>
             <section
               ref={editorSheetRef}
               className={`content-editor-sheet is-${sheetMode}${showTypeTabs ? " has-tabs" : ""}`}
@@ -2129,7 +2183,7 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
                 <img className="panel-bottom" src={icon("panel-bottom.svg")} alt="" />
               </div>
               <button className="content-sheet-close" type="button" aria-label="关闭编辑器" onClick={() => { setBlankEditor(null); setSentencePicker(null); }}>×</button>
-              {sheetMode === "sentence" && <h3 className="content-editor-title is-text">句卡库</h3>}
+              {sheetMode === "sentence" && <h3 className="content-editor-title is-text">{sentencePicker?.ai ? "AI 帮你起个头" : "句卡库"}</h3>}
               {showTypeTabs && (
                 <nav className="content-editor-tabs" aria-label="内容类型">
                   {["word", "photo", "audio"].map((mode) => (
@@ -2147,7 +2201,26 @@ export default function App({ notebookId, initialTitle, initialPage, onExit, onT
               )}
 
               <div className={`content-editor-scroll${sheetMode === "audio" ? " is-audio" : ""}`}>
-              {sheetMode === "sentence" && (
+              {sheetMode === "sentence" && sentencePicker?.ai && (
+                <div className="ai-ideas">
+                  <p className="ai-ideas-hint">
+                    {ownSentences.length ? "接着往下写，" : "还不知道怎么开头？"}根据《{notebookTitle || "无标题"}》想了几句。选一句放进句卡，空白处留给朋友填。
+                  </p>
+                  {aiIdeas.loading ? (
+                    <p className="ai-ideas-loading" role="status">正在想<i /><i /><i /></p>
+                  ) : (
+                    <div className="sentence-picker-list">
+                      {aiIdeas.lines.map((line) => (
+                        <button key={line} type="button" onClick={() => fillAiSuggestion(line)}>
+                          {splitSuggestion(line).map((part, k) => (part.type === "blank" ? <em key={k} className="ai-blank" aria-label="空白词卡" /> : <span key={k}>{part.value}</span>))}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button className="ai-ideas-more" type="button" disabled={aiIdeas.loading} onClick={() => loadAiIdeas(aiIdeas.round + 1)}>换一批</button>
+                </div>
+              )}
+              {sheetMode === "sentence" && !sentencePicker?.ai && (
                 <div className="sentence-picker-list">
                   {sentenceLibrary.map((sentence) => (
                     <Deletable key={sentence} label="这条句卡" onDelete={() => deleteLibrarySentence(sentence)}>
