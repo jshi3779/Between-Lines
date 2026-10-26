@@ -81,11 +81,15 @@ export function cloneNotebook(book: Notebook): Notebook {
   return JSON.parse(JSON.stringify(book)) as Notebook;
 }
 
+/** the example sentences a notebook starts with: placeholders, not the writer's own words */
+export const GUIDE_TEXTS: string[] = ['点「词卡」留一个空，再点它填词', '如今，十月的光落下来，已经不一样了。'];
+
 export function guideCards(avatar: number): Card[] {
-  return [
-    Card.of(avatar, [Part.text('点「词卡」留一个空，再点它填词')]),
-    Card.of(avatar, [Part.text('如今，十月的光落下来，已经不一样了。')]),
-  ];
+  return GUIDE_TEXTS.map((text: string) => Card.of(avatar, [Part.text(text)]));
+}
+
+export function cardText(card: Card): string {
+  return card.parts.map((p: Part) => p.text).join('');
 }
 
 class DesignSpec {

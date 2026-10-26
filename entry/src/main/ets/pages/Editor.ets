@@ -1,8 +1,9 @@
 import { common } from '@kit.AbilityKit';
 import {
-  Card, cloneNotebook, EditorParams, Notebook, Part, PART_BLANK, SENTENCE_LIBRARY, WORD_LIBRARY, WordGroup, writerOf
+  Card, cardText, cloneNotebook, GUIDE_TEXTS, EditorParams, Notebook, Part, PART_BLANK, SENTENCE_LIBRARY, WORD_LIBRARY, WordGroup, writerOf
 } from '../model/Models';
 import { NotebookStore } from '../common/NotebookStore';
+import { splitSuggestion, writeFromTheme } from '../common/AiSuggest';
 
 const INK = '#1E2026';
 const PAPER = '#FBFAF6';
@@ -21,6 +22,13 @@ struct Editor {
   @State showSentences: boolean = false;
   @State wordGroup: number = -1;   // -1 = all categories
   @State newWord: string = '';
+  // 「AI 写一句」: the theme the writer typed and the sentence written for it
+  @State showAi: boolean = false;
+  @State aiTheme: string = '';
+  @State aiLoading: boolean = false;
+  @State aiLine: string = '';
+  private aiRound: number = 0;
+  private aiAsked: string = '';
   private blankCard: number = -1;
   private blankPart: number = -1;
 
@@ -179,6 +187,8 @@ struct Editor {
       }
       .layoutWeight(1)
       .padding({ left: 12, right: 12, top: 14 })
+      // one sheet per component: the word sheet sits on the page, the AI sheet on the card list
+      .bindSheet($$this.showAi, this.aiSheet(), { height: 420, dragBar: true, title: { title: 'AI 写一句' } })
 
       if (this.active >= 0) {
         this.writingBar()
@@ -244,6 +254,7 @@ struct Editor {
       }
 
       Row() {
+        this.toolButton('AI', () => this.openAi())
         this.toolButton('句卡', () => this.showSentences = true)
         this.toolButton('词卡', () => this.addBlank())
         this.toolButton('删除', () => this.deleteCard(this.active))
@@ -314,6 +325,137 @@ struct Editor {
       .fontColor(this.wordGroup === index ? Color.White : '#5A5C62')
       .backgroundColor(this.wordGroup === index ? INK : '#EFE7DB')
       .onClick(() => this.wordGroup = index)
+  }
+
+  /** sentences the writers have actually written (not the example cards) */
+  private ownSentences(): string[] {
+    const out: string[] = [];
+    this.book.pages.forEach((cards: Card[]) => cards.forEach((card: Card) => {
+      const text = cardText(card).trim();
+      if (text.length > 0 && !GUIDE_TEXTS.includes(text)) {
+        out.push(text);
+      }
+    }));
+    return out;
+  }
+
+  private openAi(): void {
+    this.aiTheme = '';
+    this.aiLine = '';
+    this.aiAsked = '';
+    this.aiRound = 0;
+    this.showAi = true;
+  }
+
+  // the same theme again is 「换一句」 (next round); a new theme starts over
+  private writeWithAi(themeText: string): void {
+    const theme = themeText.trim();
+    this.aiRound = theme === this.aiAsked && this.aiLine.length > 0 ? this.aiRound + 1 : 0;
+    this.aiTheme = theme;
+    this.aiLoading = true;
+    writeFromTheme(theme, this.book.title, this.ownSentences(), this.aiRound).then((line: string) => {
+      this.aiLine = line;
+      this.aiAsked = theme;
+      this.aiLoading = false;
+    });
+  }
+
+  // an empty or example card takes the sentence; otherwise it becomes a new card on the page
+  private useAiLine(line: string): void {
+    if (this.active < 0) {
+      return;
+    }
+    const card = this.cards()[this.active];
+    const text = cardText(card).trim();
+    const plain = card.parts.every((p: Part) => p.kind !== PART_BLANK);
+    const replace = plain && (text.length === 0 || GUIDE_TEXTS.includes(text));
+    const index = replace ? this.active : this.cards().length;
+    this.change((b: Notebook) => {
+      if (replace) {
+        b.pages[this.page][this.active].parts = splitSuggestion(line);
+      } else {
+        b.pages[this.page].push(Card.of(this.me(), splitSuggestion(line)));
+      }
+    });
+    this.active = index;
+    this.showAi = false;
+  }
+
+  private aiThemes(): string[] {
+    const themes: string[] = [];
+    if (this.book.title !== '无标题' && !this.book.title.startsWith('未命名诗本')) {
+      themes.push(this.book.title);
+    }
+    return themes.concat(['初到新城市', '想念朋友', '雨天']);
+  }
+
+  @Builder
+  aiSheet() {
+    Column({ space: 12 }) {
+      Text('用一句话告诉 AI 你想写什么，它会写一张句卡，空白处留给朋友填。')
+        .fontSize(13)
+        .fontColor('#7D7A74')
+        .lineHeight(20)
+
+      Row({ space: 8 }) {
+        TextInput({ text: this.aiTheme, placeholder: '比如：初到新城市，和朋友分开了' })
+          .maxLength(30)
+          .layoutWeight(1)
+          .onChange((value: string) => this.aiTheme = value)
+          .onSubmit(() => { if (!this.aiLoading) { this.writeWithAi(this.aiTheme); } })
+        Button('生成')
+          .backgroundColor(INK)
+          .enabled(!this.aiLoading)
+          .onClick(() => this.writeWithAi(this.aiTheme))
+      }
+
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(this.aiThemes(), (theme: string) => {
+          Text(theme)
+            .fontSize(13)
+            .fontColor('#5A5C62')
+            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+            .margin({ right: 6, bottom: 6 })
+            .borderRadius(10)
+            .backgroundColor('#EFE7DB')
+            .onClick(() => { if (!this.aiLoading) { this.writeWithAi(theme); } })
+        }, (theme: string) => theme)
+      }
+
+      if (this.aiLoading) {
+        Row({ space: 8 }) {
+          LoadingProgress().width(22).height(22).color('#79746D')
+          Text('正在写…').fontSize(14).fontColor('#79746D')
+        }
+      } else if (this.aiLine.length > 0) {
+        Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+          ForEach(splitSuggestion(this.aiLine), (part: Part, k: number) => {
+            if (part.kind === PART_BLANK) {
+              Text('　　　')
+                .fontSize(14)
+                .margin({ left: 4, right: 4 })
+                .backgroundColor(EMPTY_CARD)
+                .border({ width: 1.5, color: '#79746D', style: BorderStyle.Dashed, radius: 10 })
+            } else {
+              Text(part.text).fontSize(16).fontColor(INK)
+            }
+          }, (part: Part, k: number) => `${k}-${part.kind}-${part.text}`)
+        }
+        .width('100%')
+        .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+        .borderRadius(14)
+        .backgroundColor(Color.White)
+        .border({ width: 1.5, color: '#ECEDF0', radius: 14 })
+
+        Row({ space: 8 }) {
+          Button('放进句卡').layoutWeight(1).backgroundColor(INK).onClick(() => this.useAiLine(this.aiLine))
+          Button('换一句').layoutWeight(1).backgroundColor('#ECEDF0').fontColor(INK)
+            .onClick(() => this.writeWithAi(this.aiAsked))
+        }
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding(20)
   }
 
   private visibleWords(): string[] {
