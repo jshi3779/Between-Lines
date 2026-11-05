@@ -98,6 +98,8 @@ struct Index {
     Column() {
       Row() {
         Blank()
+        Text('加入').fontSize(14).fontColor(INK).margin({ right: 18 })
+          .onClick(() => this.getUIContext().getRouter().pushUrl({ url: 'pages/Join' }).catch(() => {}))
         Text('关于').fontSize(14).fontColor(INK)
           .onClick(() => this.getUIContext().getRouter().pushUrl({ url: 'pages/About' }).catch(() => {}))
       }

@@ -2,6 +2,7 @@
   "src": [
     "pages/Index",
     "pages/Editor",
+    "pages/Join",
     "pages/About",
     "pages/Legal"
   ]

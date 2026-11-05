@@ -9,6 +9,7 @@ const STORE_NAME = 'kouzhi';
 const KEY_NOTEBOOKS = 'notebooks';
 const KEY_SEQ = 'newBookSeq';
 const KEY_AGREED = 'agreedLegal';
+const KEY_ME = 'me:';
 const LOG_DOMAIN = 0x0001;
 
 function prefs(context: common.Context): preferences.Preferences | undefined {
@@ -74,6 +75,30 @@ export class NotebookStore {
 
   static remove(context: common.Context, id: string): void {
     NotebookStore.saveAll(context, NotebookStore.load(context).filter((b: Notebook) => b.id !== id));
+  }
+
+  /** the writer id this phone writes as in a notebook; the creator (first collaborator) by default */
+  static myId(context: common.Context, book: Notebook): number {
+    const p = prefs(context);
+    let id = 0;
+    try {
+      id = p !== undefined ? p.getSync(`${KEY_ME}${book.id}`, 0) as number : 0;
+    } catch (e) {
+      id = 0;
+    }
+    return id > 0 ? id : (book.collaborators.length > 0 ? book.collaborators[0] : 1);
+  }
+
+  static setMyId(context: common.Context, bookId: string, id: number): void {
+    const p = prefs(context);
+    if (p !== undefined) {
+      write(p, `${KEY_ME}${bookId}`, id);
+    }
+  }
+
+  /** the local copy of a shared notebook */
+  static findShared(context: common.Context, shareKey: string): Notebook | undefined {
+    return NotebookStore.load(context).find((b: Notebook) => b.shareKey === shareKey || (b.shareKey ?? '').length === 0 && b.id === shareKey);
   }
 
   /** whether the user has agreed to the privacy policy and user agreement on first launch */

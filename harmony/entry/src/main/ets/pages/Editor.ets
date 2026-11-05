@@ -1,7 +1,12 @@
 import { common } from '@kit.AbilityKit';
 import {
-  Card, cardText, cloneNotebook, GUIDE_TEXTS, EditorParams, Notebook, Part, PART_BLANK, SENTENCE_LIBRARY, WORD_LIBRARY, WordGroup, writerOf
+  Card, cardText, cloneNotebook, GUIDE_TEXTS, EditorParams, nameIn, Notebook, Part, PART_BLANK, SENTENCE_LIBRARY, setNameIn,
+  WORD_LIBRARY, WordGroup, writerOf
 } from '../model/Models';
+import { pasteboard } from '@kit.BasicServicesKit';
+import { systemShare } from '@kit.ShareKit';
+import { uniformTypeDescriptor as utd } from '@kit.ArkData';
+import { encodeInvite } from '../common/InviteCodec';
 import { NotebookStore } from '../common/NotebookStore';
 import { splitSuggestion, writeFromTheme } from '../common/AiSuggest';
 
@@ -23,6 +28,7 @@ struct Editor {
   @State wordGroup: number = -1;   // -1 = all categories
   @State newWord: string = '';
   // 「AI 写一句」: the theme the writer typed and the sentence written for it
+  @State showInvite: boolean = false;
   @State showAi: boolean = false;
   @State aiTheme: string = '';
   @State aiLoading: boolean = false;
@@ -38,7 +44,7 @@ struct Editor {
 
   /** who is writing on this device: the notebook's first writer, until accounts exist */
   private me(): number {
-    return this.book.collaborators.length > 0 ? this.book.collaborators[0] : 1;
+    return NotebookStore.myId(this.ctx(), this.book);
   }
 
   aboutToAppear(): void {
@@ -55,6 +61,7 @@ struct Editor {
   private change(edit: (b: Notebook) => void): void {
     const next = cloneNotebook(this.book);
     edit(next);
+    next.updatedAt = Date.now();
     this.book = next;
     NotebookStore.saveOne(this.ctx(), next);
   }
@@ -131,17 +138,17 @@ struct Editor {
           .fontWeight(FontWeight.Bold)
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => this.change((b: Notebook) => b.title = value.trim().length > 0 ? value : '无标题'))
-        // keeps the title centred; inviting friends needs the sync backend and comes in a later version
-        Row().width(38)
+        Text('邀请').fontSize(14).fontColor(INK).onClick(() => this.showInvite = true)
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 40 })
+      .bindSheet($$this.showInvite, this.inviteSheet(), { height: 520, dragBar: true, title: { title: '邀请朋友一起写' } })
 
       // writers' tags
       Row({ space: 6 }) {
         ForEach(this.book.collaborators, (id: number) => {
           Column() {
-            Text(writerOf(id).name.charAt(0))
+            Text(nameIn(this.book, id).charAt(0))
               .fontSize(12)
               .width(28)
               .height(28)
@@ -203,7 +210,7 @@ struct Editor {
   @Builder
   cardView(card: Card, i: number) {
     Row({ space: 12 }) {
-      Text(writerOf(card.avatar).name.charAt(0))
+      Text(nameIn(this.book, card.avatar).charAt(0))
         .fontSize(14)
         .width(42)
         .height(42)
@@ -337,6 +344,80 @@ struct Editor {
       }
     }));
     return out;
+  }
+
+  /** the message to send; the first time also gives the notebook its share key */
+  private inviteText(): string {
+    if ((this.book.shareKey ?? '').length === 0) {
+      // a design notebook has the same id on every phone, so its shared copy gets its own key
+      const key = this.book.design ? `${this.book.id}-${Date.now()}` : this.book.id;
+      this.change((b: Notebook) => b.shareKey = key);
+    }
+    return encodeInvite(this.book, this.me());
+  }
+
+  private shareInvite(): void {
+    const text = this.inviteText();
+    try {
+      const data = new systemShare.SharedData({ utd: utd.UniformDataType.TEXT, content: text });
+      new systemShare.ShareController(data).show(this.ctx(), {
+        previewMode: systemShare.SharePreviewMode.DEFAULT,
+        selectionMode: systemShare.SelectionMode.SINGLE
+      }).catch(() => this.copyInvite(text));
+    } catch (e) {
+      this.copyInvite(text);
+    }
+  }
+
+  private copyInvite(text?: string): void {
+    const value = text ?? this.inviteText();
+    pasteboard.getSystemPasteboard().setData(pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, value))
+      .then(() => this.getUIContext().getPromptAction().showToast({ message: '已复制，发给朋友就能加入' }))
+      .catch(() => this.getUIContext().getPromptAction().showToast({ message: '复制失败，请再试一次' }));
+  }
+
+  @Builder
+  inviteSheet() {
+    Column({ space: 14 }) {
+      Row({ space: 10 }) {
+        Text('你的名字').fontSize(14).fontColor('#5D594F')
+        TextInput({ text: nameIn(this.book, this.me()), placeholder: '朋友会看到这个名字' })
+          .maxLength(8)
+          .layoutWeight(1)
+          .onChange((value: string) => this.change((b: Notebook) => setNameIn(b, this.me(), value)))
+      }
+
+      Text('一起写的人').fontSize(14).fontColor('#5D594F')
+      Row({ space: 8 }) {
+        ForEach(this.book.collaborators, (id: number) => {
+          Text(nameIn(this.book, id) + (id === this.me() ? '（我）' : ''))
+            .fontSize(13)
+            .fontColor(Color.White)
+            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+            .borderRadius(10)
+            .backgroundColor(writerOf(id).color)
+        }, (id: number) => `${id}-${nameIn(this.book, id)}`)
+      }
+
+      Text(this.book.collaborators.length >= 4
+        ? '这本笔记本已经有 4 位作者。写完一段后，把最新进度发给大家，他们在「加入」里粘贴就能看到。'
+        : '把邀请发给朋友，他们在扣指成诗书架右上角的「加入」里粘贴就能加入，拿到自己的颜色。写完一段后再发一次，大家粘贴就能看到最新进度。')
+        .fontSize(13)
+        .lineHeight(20)
+        .fontColor('#7D7A74')
+
+      Button(this.book.collaborators.length >= 4 ? '把最新进度发给大家' : '发给朋友')
+        .width('100%')
+        .backgroundColor(INK)
+        .onClick(() => this.shareInvite())
+      Button('复制邀请文字')
+        .width('100%')
+        .backgroundColor('#ECEDF0')
+        .fontColor(INK)
+        .onClick(() => this.copyInvite())
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding(20)
   }
 
   private openAi(): void {

@@ -74,6 +74,28 @@ export class Notebook {
   design: boolean = false;
   collaborators: number[] = [1];
   pages: Card[][] = [];
+  /** writers' own names, by writer id - 1; missing entries fall back to the placeholder names */
+  writerNames: string[] = [];
+  /** set the first time the notebook is shared; copies on friends' phones are matched by it */
+  shareKey: string = '';
+  /** last change, used to tell which shared copy is newer */
+  updatedAt: number = 0;
+}
+
+/** the name a writer goes by in this notebook */
+export function nameIn(book: Notebook, id: number): string {
+  const names = book.writerNames ?? [];
+  const own = id >= 1 && id <= names.length ? names[id - 1] : '';
+  return own !== undefined && own.length > 0 ? own : writerOf(id).name;
+}
+
+export function setNameIn(book: Notebook, id: number, name: string): void {
+  const names: string[] = (book.writerNames ?? []).slice();
+  while (names.length < WRITERS.length) {
+    names.push('');
+  }
+  names[id - 1] = name.trim().slice(0, 8);
+  book.writerNames = names;
 }
 
 /** Returns a deep copy, so a changed notebook can be assigned back to @State and re-render. */
