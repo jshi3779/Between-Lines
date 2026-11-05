@@ -8,6 +8,7 @@ import { Notebook, seedNotebooks } from '../model/Models';
 const STORE_NAME = 'kouzhi';
 const KEY_NOTEBOOKS = 'notebooks';
 const KEY_SEQ = 'newBookSeq';
+const KEY_AGREED = 'agreedLegal';
 const LOG_DOMAIN = 0x0001;
 
 function prefs(context: common.Context): preferences.Preferences | undefined {
@@ -73,6 +74,23 @@ export class NotebookStore {
 
   static remove(context: common.Context, id: string): void {
     NotebookStore.saveAll(context, NotebookStore.load(context).filter((b: Notebook) => b.id !== id));
+  }
+
+  /** whether the user has agreed to the privacy policy and user agreement on first launch */
+  static hasAgreed(context: common.Context): boolean {
+    const p = prefs(context);
+    try {
+      return p !== undefined && (p.getSync(KEY_AGREED, false) as boolean);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static setAgreed(context: common.Context): void {
+    const p = prefs(context);
+    if (p !== undefined) {
+      write(p, KEY_AGREED, true);
+    }
   }
 
   /** "未命名诗本", "未命名诗本 2", … */

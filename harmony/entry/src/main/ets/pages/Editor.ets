@@ -131,8 +131,8 @@ struct Editor {
           .fontWeight(FontWeight.Bold)
           .backgroundColor(Color.Transparent)
           .onChange((value: string) => this.change((b: Notebook) => b.title = value.trim().length > 0 ? value : '无标题'))
-        Text('邀请').fontSize(14).fontColor(INK)
-          .onClick(() => this.getUIContext().getPromptAction().showToast({ message: '邀请好友需要接入后端，下一步再做' }))
+        // keeps the title centred; inviting friends needs the sync backend and comes in a later version
+        Row().width(38)
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 40 })

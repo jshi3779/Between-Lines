@@ -1,6 +1,8 @@
 import { common } from '@kit.AbilityKit';
 import { BOOK_PALETTE, EditorParams, guideCards, Notebook, writerOf } from '../model/Models';
 import { NotebookStore } from '../common/NotebookStore';
+import { APP_NAME } from '../common/LegalTexts';
+import { LegalParams } from './Legal';
 
 const INK = '#1E2026';
 const WALL = '#ECECEA';
@@ -15,13 +17,31 @@ const COVER_W = 150;
 struct Index {
   @State books: Notebook[] = [];
   @State openId: string = '';
+  @State showConsent: boolean = false;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext;
   }
 
   onPageShow(): void {
+    this.showConsent = !NotebookStore.hasAgreed(this.ctx());
     this.books = NotebookStore.load(this.ctx());
+  }
+
+  private openLegal(kind: string): void {
+    const params = new LegalParams();
+    params.kind = kind;
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/Legal', params: params }).catch(() => {});
+  }
+
+  private agree(): void {
+    NotebookStore.setAgreed(this.ctx());
+    this.showConsent = false;
+  }
+
+  // without consent the app does not run
+  private disagree(): void {
+    this.ctx().terminateSelf().catch(() => {});
   }
 
   private openBook(book: Notebook): void {
@@ -74,12 +94,21 @@ struct Index {
   }
 
   build() {
+    Stack() {
     Column() {
+      Row() {
+        Blank()
+        Text('关于').fontSize(14).fontColor(INK)
+          .onClick(() => this.getUIContext().getRouter().pushUrl({ url: 'pages/About' }).catch(() => {}))
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 40 })
+
       Column() {
         Text('扣指成诗').fontSize(34).fontWeight(FontWeight.Bold).letterSpacing(6).fontColor(INK)
         Text('我的笔记本').fontSize(11).letterSpacing(3).fontColor('#3B3A36').margin({ top: 4 })
       }
-      .padding({ top: 56, bottom: 20 })
+      .padding({ top: 8, bottom: 20 })
 
       Scroll() {
         Column() {
@@ -101,6 +130,48 @@ struct Index {
     .width('100%')
     .height('100%')
     .backgroundColor(WALL)
+
+      if (this.showConsent) {
+        this.consent()
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  // first launch: agree to the privacy policy and user agreement before using the app
+  @Builder
+  consent() {
+    Column() {
+      Column({ space: 14 }) {
+        Text('欢迎使用' + APP_NAME).fontSize(20).fontWeight(FontWeight.Bold).fontColor(INK)
+        Text() {
+          Span('你写下的笔记本只保存在这台设备上，不会上传。使用前请阅读')
+          Span('《隐私政策》').fontColor('#3465D6').onClick(() => this.openLegal('privacy'))
+          Span('和')
+          Span('《用户协议》').fontColor('#3465D6').onClick(() => this.openLegal('terms'))
+          Span('，点「同意」即表示你已阅读并同意。')
+        }
+        .fontSize(14)
+        .lineHeight(22)
+        .fontColor('#3B3A36')
+
+        Row({ space: 10 }) {
+          Button('不同意').layoutWeight(1).backgroundColor('#ECEDF0').fontColor(INK).onClick(() => this.disagree())
+          Button('同意').layoutWeight(1).backgroundColor(INK).onClick(() => this.agree())
+        }
+        .margin({ top: 6 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('86%')
+      .padding(22)
+      .borderRadius(18)
+      .backgroundColor(Color.White)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#66242222')
   }
 
   @Builder

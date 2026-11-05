@@ -1,0 +1,71 @@
+# 扣指成诗 · 鸿蒙版上架步骤
+
+上架到华为应用市场（AppGallery），通过 AppGallery Connect（下文简称 AGC，<https://developer.huawei.com/consumer/cn/service/josp/agc/index.html>）完成。下面按顺序排列；标 ✅ 的已在代码里做好，标 👤 的需要用你的华为账号操作。
+
+## 一、应用本身（已完成）
+
+- ✅ 包名 `com.betweenlines.kouzhi`，应用名「扣指成诗」，版本 1.0.0（`AppScope/app.json5`）。
+- ✅ 只支持手机（`entry/src/main/module.json5` 的 `deviceTypes`），平板、手表等以后再适配，避免审核时因没适配被拒。
+- ✅ 应用图标：分层图标（前景 / 背景），启动图标；商店用图标在 `store/icon-216.png`（另有 1024 原图）。
+- ✅ 首次启动弹出隐私政策和用户协议，不同意就退出；书架右上角「关于」里随时能看。
+- ✅ 隐私政策网页：<https://jshi3779.github.io/Between-Lines/legal/privacy.html>，用户协议：<https://jshi3779.github.io/Between-Lines/legal/terms.html>。正文写在 `entry/src/main/ets/common/LegalTexts.ets`，改完运行 `node scripts/build-legal.mjs`（仓库根目录）重新生成网页，两边保持一致。
+- ✅ 去掉了还没做完的「邀请」按钮（需要后端），审核会拒绝点了没反应或提示「下一步再做」的功能。
+- ✅ 不申请任何敏感权限，没有接入第三方 SDK，隐私问卷可以如实填「不收集个人信息」。
+
+## 二、上架前要你补的
+
+1. 👤 **联系邮箱**：把 `LegalTexts.ets` 里的 `CONTACT` 改成你的邮箱，然后运行 `node scripts/build-legal.mjs`、提交推送。隐私政策里必须有能联系到开发者的方式。
+2. 👤 **真机或模拟器跑一遍**：DevEco Studio 打开 `harmony` 文件夹 → Device Manager 建手机模拟器 → 运行。重点看：首次启动的协议弹窗、新建 / 删除笔记本、写句卡、词卡、AI 写一句、关于页。
+3. 👤 **截图 3～5 张**（手机竖屏，模拟器里 Ctrl+S 或工具栏截图）：书架、笔记本页、词卡面板、AI 写一句、关于页任选。
+
+## 三、账号与 AGC（你来操作）
+
+1. 👤 **注册并实名认证华为开发者账号**：<https://developer.huawei.com>，个人或企业都可以，个人需身份证认证，一般 1～2 个工作日。
+2. 👤 **在 AGC 创建项目和应用**：我的项目 → 添加项目 → 添加应用，平台选 HarmonyOS，应用包名填 `com.betweenlines.kouzhi`（必须和代码一致），分类建议「教育」或「图书阅读」下的写作类，以 AGC 可选项为准。
+3. 👤 **APP 备案**：在中国大陆上架的 App 需要完成工信部 APP 备案，AGC 的应用信息页会提示入口和要求，按提示提交（个人开发者也可以办理）。备案审核时间较长，建议和下面的步骤并行。
+
+## 四、发布签名
+
+上架包必须用 AGC 签发的发布证书签名（调试时 DevEco 的「自动签名」只能用于调试，不能上架）。
+
+1. 👤 DevEco Studio：Build → Generate Key and CSR，生成密钥库文件（`.p12`）和证书请求文件（`.csr`）。**`.p12` 和密码务必备份，丢了以后无法更新应用。**
+2. 👤 AGC → 证书、APP ID 和 Profile → 证书：新增「发布证书」，上传 `.csr`，下载 `.cer`。
+3. 👤 AGC → Profile：新增「发布」类型的 Profile，选上面的证书，下载 `.p7b`。
+4. 👤 DevEco Studio：File → Project Structure → Signing Configs，**取消**自动签名，填入 `.p12`、`.cer`、`.p7b` 和密码。
+5. 👤 Build → Build Hap(s)/APP(s) → Build APP(s)，生成 `.app` 上架包（在 `build/outputs/default/` 下）。
+
+> 签名信息会写进 `build-profile.json5`，**不要把它和 `.p12` 提交到 GitHub**。提交前用 `git diff` 检查一下，或者把签名文件放在仓库外面。
+
+## 五、填写商店信息并提交审核
+
+AGC → 我的应用 → 版本信息，填写下面这些后提交：
+
+| 项目 | 建议填写 |
+|---|---|
+| 应用名称 | 扣指成诗 |
+| 一句话简介 | 把今天写成一句诗，和朋友一起填完 |
+| 应用介绍 | 见下方 |
+| 应用图标 | `store/icon-216.png` |
+| 截图 | 第二节第 3 步截的 3～5 张 |
+| 隐私政策网址 | https://jshi3779.github.io/Between-Lines/legal/privacy.html |
+| 隐私问卷 | 不收集个人信息、不申请敏感权限、无第三方 SDK |
+| 软件包 | 第四节生成的 `.app` |
+| 年龄分级 | 按问卷如实填写（内容为用户自己写的文字） |
+
+**应用介绍（可直接用）**
+
+> 扣指成诗是一本可以拼贴的诗集笔记本。
+>
+> · 书架：设计稿里的示例诗集，加上你自己建的笔记本，一层一层排好。
+> · 句卡：每一句诗写在一张句卡上，留出空白词卡，再挑一个词填进去。
+> · 词卡库：自然、时间、地点、心情，二十多个词随手可选，也能写下自己的新词。
+> · AI 写一句：说说你想写什么，比如「初到新城市」「想念朋友」，帮你起一句开头。
+> · 所有内容只保存在你的手机上，不注册、不上传。
+
+审核一般需要几个工作日，被拒时 AGC 会写明原因，按原因改完重新提交即可。
+
+## 六、之后的版本
+
+- 多人共写和邀请链接需要后端（账号登录 + 云端同步），可以用 AGC 的认证服务和云数据库，做好后再上「邀请」按钮。
+- 「AI 写一句」现在是本地预置句子，接入真实大模型时需要更新隐私政策（会把主题发给模型服务），并重新提交审核。
+- 每次更新：`app.json5` 里 `versionCode` 加一、`versionName` 改新版本号，重新打包提交。
