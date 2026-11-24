@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.vite/
+.vercel/
+artifacts/
+# 本地用户数据库不得提交。
+backend/*.sqlite3*
+__pycache__/

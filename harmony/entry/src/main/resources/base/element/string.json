@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "扣指成诗：和朋友一起写拼贴诗"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "书架与笔记本"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "扣指成诗"
+    }
+  ]
+}
