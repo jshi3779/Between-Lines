@@ -1,14 +1,18 @@
 import json, sqlite3, hashlib, secrets, time  # 使用 Python 标准库处理 JSON、数据库、密码和会话。
 from pathlib import Path  # 用绝对路径定位数据库。
+from contextlib import contextmanager  # 确保事务结束后连接确实关闭。
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler  # 提供本地 HTTP 接口。
 ROOT = Path(__file__).resolve().parent  # 后端文件所在目录。
 DB = ROOT / 'data.sqlite3'  # 数据只保存在本地，不提交 GitHub。
 SESSIONS = {}  # 会话保存在内存，服务重启后需重新登录。
+@contextmanager  # 将连接函数包装成安全的资源上下文。
 def connect():  # 每个请求独立连接，避免线程共享连接。
     db = sqlite3.connect(DB)  # 打开或创建数据库。
     db.row_factory = sqlite3.Row  # 查询结果可按列名访问。
     db.execute('PRAGMA foreign_keys=ON')  # 开启外键检查。
-    return db  # 返回连接。
+    try:  # 即使请求失败也释放文件句柄。
+        with db: yield db  # 成功提交，失败回滚。
+    finally: db.close()  # 防止 Windows 数据库文件锁和连接泄漏。
 with connect() as db:  # 初始化数据库结构。
     db.executescript('''
     -- 用户名唯一，password 列存储加盐密码哈希。
