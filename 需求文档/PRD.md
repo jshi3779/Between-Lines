@@ -1,6 +1,7 @@
 # 扣指成诗：账号、拼贴创作与演示 AI 历史 PRD
 
 版本：1.0；编写日期：2026-11-25。基线：本地 `codex/sqlite-local` 分支。本文描述本地 React＋Python 标准库＋SQLite 版本，不代表公网生产版或鸿蒙原生版。
+目录整理说明：下文 `src/`、`public/`、Vite 配置及依赖清单均以 `frontend/` 为基准；`backend/`、`start-local.cmd` 仍以项目根目录为基准。开发启动说明已移入 `开发文档/`。
 
 ## 1. 阅读规则与证据
 

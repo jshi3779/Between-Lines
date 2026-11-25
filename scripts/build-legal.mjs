@@ -42,7 +42,7 @@ ${list.map(([t, b]) => `<h2>${esc(t)}</h2>\n<p>${esc(b)}</p>`).join("\n")}
 </html>
 `;
 
-const out = new URL("../public/legal/", import.meta.url);
+const out = new URL("../frontend/public/legal/", import.meta.url); // 法律页面输出到前端静态资源目录。
 mkdirSync(out, { recursive: true });
 const privacy = sections("PRIVACY_POLICY"), terms = sections("USER_AGREEMENT");
 if (!privacy.length || !terms.length) throw new Error("could not read LegalTexts.ets");

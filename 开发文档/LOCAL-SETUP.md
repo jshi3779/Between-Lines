@@ -3,6 +3,7 @@
 需要 Python 3 和 Node.js；SQLite 随 Python 自带，无需安装数据库或 Python 第三方包。
 
 双击 `start-local.cmd`，打开 http://127.0.0.1:5180 。先注册，之后登录才进入书架。
+启动脚本位于项目根目录。前端代码已移到 frontend；从根目录手动构建请执行 `npm --prefix frontend run build`，手动启动执行 `npm --prefix frontend run dev -- --host 127.0.0.1 --port 5180 --strictPort`。
 
 后端端口 8765，前端端口 5180。关闭两个服务窗口即可停止。下次打开使用同一账号。
 
